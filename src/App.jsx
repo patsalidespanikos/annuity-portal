@@ -1,10 +1,22 @@
 import { useState } from "react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line, RadarChart, Radar, PolarGrid,
+  PolarAngleAxis, PolarRadiusAxis, AreaChart, Area
+} from "recharts";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const STAGE_LABELS = ["","Enquiry","Quote","Underwriting","Repricing","Reinsurer","Fund Transfer","Policy Issue","In-Force"];
 const STAGE_COLORS = ["","#388bfd","#388bfd","#b45309","#d4a017","#0f766e","#1d4ed8","#166534","#374151"];
 const STAGES = [{n:1,label:"Enquiry"},{n:2,label:"Quote"},{n:3,label:"Underwriting"},{n:4,label:"Repricing"},{n:5,label:"Reinsurer"},{n:6,label:"Fund Transfer"},{n:7,label:"Policy Issue"},{n:8,label:"In-Force"}];
-const NAV = ["Dashboard","Cases","Actions","IFA Relationships","Workflow Reference","Integrations"];
+const NAV = ["Dashboard","Cases","Actions","IFA Relationships","Risk Analytics","Workflow Reference","Integrations"];
+
+const RC = {
+  blue:"#388bfd",amber:"#d4a017",green:"#3fb950",red:"#f85149",teal:"#0f766e",
+  purple:"#8b5cf6",orange:"#f97316",pink:"#ec4899",slate:"#64748b",cyan:"#06b6d4",
+  lime:"#84cc16",indigo:"#6366f1",bg:"#0d1117",card:"#0a0e15",border:"#161b22",
+  text:"#e6edf3",muted:"#6e7681",dim:"#484f58",
+};
 
 // ─── STAGE CHECKLISTS ─────────────────────────────────────────────────────────
 const STAGE_CHECKS = {
@@ -13,179 +25,31 @@ const STAGE_CHECKS = {
   3:[{id:"medical_triage",label:"Medical triage completed — conditions coded (ICD-10)",critical:true},{id:"igpr_requested",label:"iGPR GP report request raised",critical:true},{id:"gp_report_received",label:"GP report received and reviewed",critical:true},{id:"morgan_ash",label:"Morgan Ash MARS assessment (if vulnerability flagged)",critical:false},{id:"uw_decision",label:"Underwriting decision made and recorded",critical:true},{id:"chief_uw",label:"Chief UW sign-off (if referred)",critical:false},{id:"art9_confirmed",label:"Art.9 GDPR — medical data stored in isolated system",critical:true}],
   4:[{id:"reprice_triggered",label:"Reprice trigger reason logged",critical:true},{id:"new_rate_calculated",label:"New annuity rate calculated and validated",critical:true},{id:"ifa_notified",label:"IFA notified via Mailock — validity window started",critical:true},{id:"ifa_accepted_reprice",label:"IFA formally accepted repriced terms",critical:true},{id:"reprice_audit",label:"Reprice event audit log confirmed (FCA requirement)",critical:true}],
   5:[{id:"submission_pack",label:"Reinsurer submission pack prepared",critical:true},{id:"medical_bundle",label:"Medical evidence bundle included and verified",critical:true},{id:"sent_to_reinsurer",label:"Submission sent to reinsurer — reference logged",critical:true},{id:"reinsurer_contact",label:"Reinsurer confirmed receipt of submission",critical:true},{id:"decision_received",label:"Reinsurer decision received",critical:true},{id:"counter_offer_reviewed",label:"Counter-offer reviewed by Chief UW (if applicable)",critical:false},{id:"terms_accepted",label:"Final reinsurer terms accepted",critical:true}],
-  6:[{id:"transfer_requested",label:"Transfer request sent to ceding provider",critical:true},{id:"origo_tracking",label:"Origo Options tracking reference obtained",critical:true},{id:"funds_received",label:"Funds received in full — amount verified",critical:true},{id:"reconciliation",label:"Bank reconciliation completed — no shortfall",critical:true},{id:"tolerance_check",label:"Tolerance check passed (±£50 threshold)",critical:true}],
+  6:[{id:"transfer_requested",label:"Transfer request sent to ceding provider",critical:true},{id:"origo_tracking",label:"Origo Options tracking reference obtained",critical:true},{id:"funds_received",label:"Funds received in full — amount verified",critical:true},{id:"reconciliation",label:"Bank reconciliation completed — no shortfall",critical:true},{id:"tolerance_check",label:"Tolerance check passed (+-50 threshold)",critical:true}],
   7:[{id:"preissue_checks",label:"Pre-issue checklist completed",critical:true},{id:"policy_schedule",label:"Policy schedule generated",critical:true},{id:"ipid_generated",label:"IPID document generated (FCA requirement)",critical:true},{id:"welcome_letter",label:"Welcome letter generated",critical:true},{id:"docs_sent_ph",label:"Documents sent to policyholder via DocuSign",critical:true},{id:"docs_sent_ifa",label:"Copy sent to IFA back-office",critical:true},{id:"ph_signed",label:"Policyholder signature received",critical:true},{id:"first_payment_set",label:"First payment scheduled in payment engine",critical:true},{id:"consumer_duty",label:"Consumer Duty understanding confirmed",critical:true}],
   8:[{id:"payments_running",label:"Payment run confirmed active",critical:true},{id:"annual_statement",label:"Annual statement sent (FCA requirement)",critical:false},{id:"death_verified",label:"Death verified — cessation/survivor pension actioned (if applicable)",critical:false},{id:"payment_query_resolved",label:"Payment query resolved (if applicable)",critical:false}],
 };
 
-// ─── IFA DATA ─────────────────────────────────────────────────────────────────
+// ─── IFA ONBOARDING STAGES ────────────────────────────────────────────────────
 const ONBOARDING_STAGES = [
-  {id:"application",label:"Application Received"},
-  {id:"kyc_id",label:"KYC — ID Verified"},
-  {id:"kyc_aml",label:"AML Screening"},
-  {id:"sanctions",label:"Sanctions Check"},
-  {id:"pep_check",label:"PEP Check"},
-  {id:"fca_check",label:"FCA Register Verified"},
-  {id:"unipass",label:"Unipass / Origo Setup"},
-  {id:"agency_agreement",label:"Agency Agreement Signed"},
-  {id:"commission_agreed",label:"Commission Terms Agreed"},
-  {id:"system_access",label:"Portal Access Granted"},
+  {id:"application",label:"Application Received"},{id:"kyc_id",label:"KYC — ID Verified"},
+  {id:"kyc_aml",label:"AML Screening"},{id:"sanctions",label:"Sanctions Check"},
+  {id:"pep_check",label:"PEP Check"},{id:"fca_check",label:"FCA Register Verified"},
+  {id:"unipass",label:"Unipass / Origo Setup"},{id:"agency_agreement",label:"Agency Agreement Signed"},
+  {id:"commission_agreed",label:"Commission Terms Agreed"},{id:"system_access",label:"Portal Access Granted"},
   {id:"first_case",label:"First Case Submitted"},
 ];
 
+// ─── IFA DATA ─────────────────────────────────────────────────────────────────
 const INITIAL_IFAS = [
-  {
-    id:"IFA-001", firm:"Hargreaves Lansdown", type:"National Network",
-    fcaNumber:"115248", unipaussId:"HL-UP-44821", status:"Active",
-    relationshipManager:"Sarah Ahmed", lastContact:"06/03/2026",
-    onboardedDate:"14/01/2022", reviewDueDate:"14/01/2027",
-    commissionType:"Indemnity", initialCommission:1.5, trailCommission:0.0,
-    paymentTerms:"Monthly", preferredContact:"Mailock",
-    totalCasesSubmitted:34, casesCompleted:28, casesPending:4, casesIncomplete:2,
-    totalPremium:"£4,812,000", commissionPaid:"£72,180",
-    address:"One College Square South, Anchor Road, Bristol, BS1 5HL",
-    contact:"annuities@hl.co.uk / 0117 900 9000",
-    notes:"Key strategic partner. High volume, good quality submissions. Annual review due Jan 2027.",
-    onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:true,first_case:true},
-    sanctions:{screened:true,screenedDate:"12/01/2022",result:"Clear",provider:"ComplyAdvantage",nextReview:"12/01/2027"},
-    aml:{verified:true,verifiedDate:"12/01/2022",method:"Electronic verification",documents:["Firm registration","Director ID","Bank letter"],nextReview:"12/01/2027"},
-    pep:{checked:true,checkedDate:"12/01/2022",result:"No PEP/RCA identified"},
-    commissionHistory:[{date:"28/02/2026",amount:"£3,240",cases:2},{date:"31/01/2026",amount:"£4,860",cases:3},{date:"31/12/2025",amount:"£2,160",cases:1}],
-    cases:["ANN-2026-0891","ANN-2025-0741"],
-  },
-  {
-    id:"IFA-002", firm:"St. James's Place", type:"National Network",
-    fcaNumber:"176705", unipaussId:"SJP-UP-33412", status:"Active",
-    relationshipManager:"James Palmer", lastContact:"04/03/2026",
-    onboardedDate:"03/06/2021", reviewDueDate:"03/06/2026",
-    commissionType:"Indemnity", initialCommission:1.75, trailCommission:0.0,
-    paymentTerms:"Monthly", preferredContact:"Email",
-    totalCasesSubmitted:19, casesCompleted:14, casesPending:3, casesIncomplete:2,
-    totalPremium:"£2,134,500", commissionPaid:"£37,354",
-    address:"St. James's Place House, 1 Tetbury Road, Cirencester, GL7 1FP",
-    contact:"annuities@sjp.co.uk / 01285 640302",
-    notes:"Review due June 2026. Two recent submissions returned for incomplete medical questionnaires.",
-    onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:true,first_case:true},
-    sanctions:{screened:true,screenedDate:"01/06/2021",result:"Clear",provider:"LexisNexis",nextReview:"01/06/2026"},
-    aml:{verified:true,verifiedDate:"01/06/2021",method:"Electronic verification",documents:["Firm registration","Director ID"],nextReview:"01/06/2026"},
-    pep:{checked:true,checkedDate:"01/06/2021",result:"No PEP/RCA identified"},
-    commissionHistory:[{date:"28/02/2026",amount:"£1,750",cases:1},{date:"31/01/2026",amount:"£3,500",cases:2}],
-    cases:["ANN-2026-0892","ANN-2026-0887","ANN-2026-0864"],
-  },
-  {
-    id:"IFA-003", firm:"Quilter", type:"National Network",
-    fcaNumber:"907783", unipaussId:"QL-UP-55209", status:"Active",
-    relationshipManager:"Sarah Ahmed", lastContact:"07/03/2026",
-    onboardedDate:"22/09/2020", reviewDueDate:"22/09/2025",
-    commissionType:"Fee Offset", initialCommission:1.25, trailCommission:0.0,
-    paymentTerms:"Monthly", preferredContact:"Mailock",
-    totalCasesSubmitted:41, casesCompleted:35, casesPending:4, casesIncomplete:2,
-    totalPremium:"£6,102,000", commissionPaid:"£76,275",
-    address:"Senator House, 85 Queen Victoria Street, London, EC4V 4AB",
-    contact:"annuities@quilter.com / 020 7618 8000",
-    notes:"Largest volume partner. Annual review overdue — chased 07/03/2026. Escalate if no response.",
-    onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:true,first_case:true},
-    sanctions:{screened:true,screenedDate:"20/09/2020",result:"Clear",provider:"ComplyAdvantage",nextReview:"20/09/2025"},
-    aml:{verified:true,verifiedDate:"20/09/2020",method:"Electronic verification",documents:["Firm registration","Director ID","Source of business"],nextReview:"20/09/2025"},
-    pep:{checked:true,checkedDate:"20/09/2020",result:"No PEP/RCA identified"},
-    commissionHistory:[{date:"28/02/2026",amount:"£5,100",cases:4},{date:"31/01/2026",amount:"£3,825",cases:3},{date:"31/12/2025",amount:"£2,550",cases:2}],
-    cases:["ANN-2026-0895","ANN-2026-0879","ANN-2026-0882","ANN-2025-0698"],
-  },
-  {
-    id:"IFA-004", firm:"Tilney", type:"Regional IFA",
-    fcaNumber:"551799", unipaussId:"TL-UP-22108", status:"Active",
-    relationshipManager:"Kevin Jones", lastContact:"01/03/2026",
-    onboardedDate:"11/03/2023", reviewDueDate:"11/03/2026",
-    commissionType:"Indemnity", initialCommission:1.5, trailCommission:0.0,
-    paymentTerms:"Monthly", preferredContact:"Mailock",
-    totalCasesSubmitted:11, casesCompleted:7, casesPending:3, casesIncomplete:1,
-    totalPremium:"£1,442,150", commissionPaid:"£21,632",
-    address:"Royal Liver Building, Pier Head, Liverpool, L3 1NY",
-    contact:"annuities@tilney.co.uk / 0207 189 2400",
-    notes:"Annual review due 11/03/2026 — overdue. Good submission quality generally.",
-    onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:true,first_case:true},
-    sanctions:{screened:true,screenedDate:"09/03/2023",result:"Clear",provider:"ComplyAdvantage",nextReview:"09/03/2026"},
-    aml:{verified:true,verifiedDate:"09/03/2023",method:"Electronic verification",documents:["Firm registration","Director ID"],nextReview:"09/03/2026"},
-    pep:{checked:true,checkedDate:"09/03/2023",result:"No PEP/RCA identified"},
-    commissionHistory:[{date:"28/02/2026",amount:"£2,100",cases:1},{date:"31/12/2025",amount:"£1,050",cases:1}],
-    cases:["ANN-2026-0898","ANN-2026-0871"],
-  },
-  {
-    id:"IFA-005", firm:"Brewin Dolphin", type:"Regional IFA",
-    fcaNumber:"124444", unipaussId:"BD-UP-11934", status:"Active",
-    relationshipManager:"James Palmer", lastContact:"08/03/2026",
-    onboardedDate:"05/07/2021", reviewDueDate:"05/07/2026",
-    commissionType:"Indemnity", initialCommission:1.5, trailCommission:0.0,
-    paymentTerms:"Monthly", preferredContact:"Email",
-    totalCasesSubmitted:16, casesCompleted:12, casesPending:2, casesIncomplete:2,
-    totalPremium:"£1,931,400", commissionPaid:"£28,971",
-    address:"12 Smithfield Street, London, EC1A 9LA",
-    contact:"annuities@brewin.co.uk / 020 7248 4400",
-    notes:"Two current cases with incomplete fund transfer documentation. Follow-up required.",
-    onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:true,first_case:true},
-    sanctions:{screened:true,screenedDate:"03/07/2021",result:"Clear",provider:"LexisNexis",nextReview:"03/07/2026"},
-    aml:{verified:true,verifiedDate:"03/07/2021",method:"Electronic verification",documents:["Firm registration","Director ID"],nextReview:"03/07/2026"},
-    pep:{checked:true,checkedDate:"03/07/2021",result:"No PEP/RCA identified"},
-    commissionHistory:[{date:"28/02/2026",amount:"£1,500",cases:1},{date:"31/01/2026",amount:"£3,000",cases:2}],
-    cases:["ANN-2026-0885","ANN-2026-0876","ANN-2025-0712"],
-  },
-  {
-    id:"IFA-006", firm:"Rathbones", type:"Regional IFA",
-    fcaNumber:"070493", unipaussId:"RB-UP-88341", status:"Active",
-    relationshipManager:"Kevin Jones", lastContact:"05/03/2026",
-    onboardedDate:"18/11/2019", reviewDueDate:"18/11/2024",
-    commissionType:"Indemnity", initialCommission:1.5, trailCommission:0.0,
-    paymentTerms:"Monthly", preferredContact:"Mailock",
-    totalCasesSubmitted:28, casesCompleted:23, casesPending:3, casesIncomplete:2,
-    totalPremium:"£3,812,500", commissionPaid:"£57,188",
-    address:"8 Finsbury Circus, London, EC2M 7AZ",
-    contact:"annuities@rathbones.com / 020 7399 0000",
-    notes:"Annual review significantly overdue (Nov 2024). KYC/AML refresh required. Escalated to Compliance.",
-    onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:true,first_case:true},
-    sanctions:{screened:true,screenedDate:"15/11/2019",result:"Clear",provider:"ComplyAdvantage",nextReview:"15/11/2024"},
-    aml:{verified:true,verifiedDate:"15/11/2019",method:"Electronic verification",documents:["Firm registration","Director ID","Source of business"],nextReview:"15/11/2024"},
-    pep:{checked:true,checkedDate:"15/11/2019",result:"No PEP/RCA identified"},
-    commissionHistory:[{date:"28/02/2026",amount:"£1,500",cases:1},{date:"31/01/2026",amount:"£3,000",cases:2},{date:"31/12/2025",amount:"£1,500",cases:1}],
-    cases:["ANN-2026-0901","ANN-2026-0881","ANN-2026-0869"],
-  },
-  {
-    id:"IFA-007", firm:"Clarity Wealth Ltd", type:"Independent IFA",
-    fcaNumber:"812334", unipaussId:"", status:"Onboarding",
-    relationshipManager:"Sarah Ahmed", lastContact:"09/03/2026",
-    onboardedDate:"", reviewDueDate:"",
-    commissionType:"Indemnity", initialCommission:1.25, trailCommission:0.0,
-    paymentTerms:"Monthly", preferredContact:"Email",
-    totalCasesSubmitted:0, casesCompleted:0, casesPending:0, casesIncomplete:0,
-    totalPremium:"£0", commissionPaid:"£0",
-    address:"14 King Street, Manchester, M2 6AG",
-    contact:"info@claritywealth.co.uk / 0161 834 5500",
-    notes:"New IFA onboarding initiated 01/03/2026. KYC and sanctions in progress. Good pipeline expected.",
-    onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:false,pep_check:false,fca_check:true,unipass:false,agency_agreement:false,commission_agreed:false,system_access:false,first_case:false},
-    sanctions:{screened:false,screenedDate:"",result:"In progress",provider:"ComplyAdvantage",nextReview:""},
-    aml:{verified:true,verifiedDate:"05/03/2026",method:"Electronic verification",documents:["Firm registration","Director ID"],nextReview:""},
-    pep:{checked:false,checkedDate:"",result:"Pending"},
-    commissionHistory:[],
-    cases:[],
-  },
-  {
-    id:"IFA-008", firm:"Meridian Financial Planning", type:"Independent IFA",
-    fcaNumber:"934112", unipaussId:"", status:"Suspended",
-    relationshipManager:"James Palmer", lastContact:"15/01/2026",
-    onboardedDate:"04/04/2022", reviewDueDate:"04/04/2025",
-    commissionType:"Indemnity", initialCommission:1.5, trailCommission:0.0,
-    paymentTerms:"Monthly", preferredContact:"Email",
-    totalCasesSubmitted:6, casesCompleted:3, casesPending:0, casesIncomplete:3,
-    totalPremium:"£498,000", commissionPaid:"£7,470",
-    address:"22 High Street, Leeds, LS1 4HR",
-    contact:"admin@meridianfp.co.uk / 0113 245 8800",
-    notes:"Suspended pending compliance investigation — three cases rejected for falsified medical questionnaires. Compliance team notified. Do not accept new cases.",
-    onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:false,first_case:true},
-    sanctions:{screened:true,screenedDate:"02/04/2022",result:"Clear — REVIEW REQUIRED",provider:"LexisNexis",nextReview:"04/04/2025"},
-    aml:{verified:true,verifiedDate:"02/04/2022",method:"Electronic verification",documents:["Firm registration"],nextReview:"04/04/2025"},
-    pep:{checked:true,checkedDate:"02/04/2022",result:"No PEP/RCA identified"},
-    commissionHistory:[{date:"30/11/2025",amount:"£1,500",cases:1}],
-    cases:[],
-  },
+  {id:"IFA-001",firm:"Hargreaves Lansdown",type:"National Network",fcaNumber:"115248",unipaussId:"HL-UP-44821",status:"Active",relationshipManager:"Sarah Ahmed",lastContact:"06/03/2026",onboardedDate:"14/01/2022",reviewDueDate:"14/01/2027",commissionType:"Indemnity",initialCommission:1.5,trailCommission:0.0,paymentTerms:"Monthly",preferredContact:"Mailock",totalCasesSubmitted:34,casesCompleted:28,casesPending:4,casesIncomplete:2,totalPremium:"£4,812,000",commissionPaid:"£72,180",address:"One College Square South, Anchor Road, Bristol, BS1 5HL",contact:"annuities@hl.co.uk / 0117 900 9000",notes:"Key strategic partner. High volume, good quality submissions. Annual review due Jan 2027.",onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:true,first_case:true},sanctions:{screened:true,screenedDate:"12/01/2022",result:"Clear",provider:"ComplyAdvantage",nextReview:"12/01/2027"},aml:{verified:true,verifiedDate:"12/01/2022",method:"Electronic verification",documents:["Firm registration","Director ID","Bank letter"],nextReview:"12/01/2027"},pep:{checked:true,checkedDate:"12/01/2022",result:"No PEP/RCA identified"},commissionHistory:[{date:"28/02/2026",amount:"£3,240",cases:2},{date:"31/01/2026",amount:"£4,860",cases:3},{date:"31/12/2025",amount:"£2,160",cases:1}],cases:["ANN-2026-0891","ANN-2025-0741"]},
+  {id:"IFA-002",firm:"St. James's Place",type:"National Network",fcaNumber:"176705",unipaussId:"SJP-UP-33412",status:"Active",relationshipManager:"James Palmer",lastContact:"04/03/2026",onboardedDate:"03/06/2021",reviewDueDate:"03/06/2026",commissionType:"Indemnity",initialCommission:1.75,trailCommission:0.0,paymentTerms:"Monthly",preferredContact:"Email",totalCasesSubmitted:19,casesCompleted:14,casesPending:3,casesIncomplete:2,totalPremium:"£2,134,500",commissionPaid:"£37,354",address:"St. James's Place House, 1 Tetbury Road, Cirencester, GL7 1FP",contact:"annuities@sjp.co.uk / 01285 640302",notes:"Review due June 2026. Two recent submissions returned for incomplete medical questionnaires.",onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:true,first_case:true},sanctions:{screened:true,screenedDate:"01/06/2021",result:"Clear",provider:"LexisNexis",nextReview:"01/06/2026"},aml:{verified:true,verifiedDate:"01/06/2021",method:"Electronic verification",documents:["Firm registration","Director ID"],nextReview:"01/06/2026"},pep:{checked:true,checkedDate:"01/06/2021",result:"No PEP/RCA identified"},commissionHistory:[{date:"28/02/2026",amount:"£1,750",cases:1},{date:"31/01/2026",amount:"£3,500",cases:2}],cases:["ANN-2026-0892","ANN-2026-0887","ANN-2026-0864"]},
+  {id:"IFA-003",firm:"Quilter",type:"National Network",fcaNumber:"907783",unipaussId:"QL-UP-55209",status:"Active",relationshipManager:"Sarah Ahmed",lastContact:"07/03/2026",onboardedDate:"22/09/2020",reviewDueDate:"22/09/2025",commissionType:"Fee Offset",initialCommission:1.25,trailCommission:0.0,paymentTerms:"Monthly",preferredContact:"Mailock",totalCasesSubmitted:41,casesCompleted:35,casesPending:4,casesIncomplete:2,totalPremium:"£6,102,000",commissionPaid:"£76,275",address:"Senator House, 85 Queen Victoria Street, London, EC4V 4AB",contact:"annuities@quilter.com / 020 7618 8000",notes:"Largest volume partner. Annual review overdue — chased 07/03/2026. Escalate if no response.",onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:true,first_case:true},sanctions:{screened:true,screenedDate:"20/09/2020",result:"Clear",provider:"ComplyAdvantage",nextReview:"20/09/2025"},aml:{verified:true,verifiedDate:"20/09/2020",method:"Electronic verification",documents:["Firm registration","Director ID","Source of business"],nextReview:"20/09/2025"},pep:{checked:true,checkedDate:"20/09/2020",result:"No PEP/RCA identified"},commissionHistory:[{date:"28/02/2026",amount:"£5,100",cases:4},{date:"31/01/2026",amount:"£3,825",cases:3},{date:"31/12/2025",amount:"£2,550",cases:2}],cases:["ANN-2026-0895","ANN-2026-0879","ANN-2026-0882","ANN-2025-0698"]},
+  {id:"IFA-004",firm:"Tilney",type:"Regional IFA",fcaNumber:"551799",unipaussId:"TL-UP-22108",status:"Active",relationshipManager:"Kevin Jones",lastContact:"01/03/2026",onboardedDate:"11/03/2023",reviewDueDate:"11/03/2026",commissionType:"Indemnity",initialCommission:1.5,trailCommission:0.0,paymentTerms:"Monthly",preferredContact:"Mailock",totalCasesSubmitted:11,casesCompleted:7,casesPending:3,casesIncomplete:1,totalPremium:"£1,442,150",commissionPaid:"£21,632",address:"Royal Liver Building, Pier Head, Liverpool, L3 1NY",contact:"annuities@tilney.co.uk / 0207 189 2400",notes:"Annual review due 11/03/2026 — overdue. Good submission quality generally.",onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:true,first_case:true},sanctions:{screened:true,screenedDate:"09/03/2023",result:"Clear",provider:"ComplyAdvantage",nextReview:"09/03/2026"},aml:{verified:true,verifiedDate:"09/03/2023",method:"Electronic verification",documents:["Firm registration","Director ID"],nextReview:"09/03/2026"},pep:{checked:true,checkedDate:"09/03/2023",result:"No PEP/RCA identified"},commissionHistory:[{date:"28/02/2026",amount:"£2,100",cases:1},{date:"31/12/2025",amount:"£1,050",cases:1}],cases:["ANN-2026-0898","ANN-2026-0871"]},
+  {id:"IFA-005",firm:"Brewin Dolphin",type:"Regional IFA",fcaNumber:"124444",unipaussId:"BD-UP-11934",status:"Active",relationshipManager:"James Palmer",lastContact:"08/03/2026",onboardedDate:"05/07/2021",reviewDueDate:"05/07/2026",commissionType:"Indemnity",initialCommission:1.5,trailCommission:0.0,paymentTerms:"Monthly",preferredContact:"Email",totalCasesSubmitted:16,casesCompleted:12,casesPending:2,casesIncomplete:2,totalPremium:"£1,931,400",commissionPaid:"£28,971",address:"12 Smithfield Street, London, EC1A 9LA",contact:"annuities@brewin.co.uk / 020 7248 4400",notes:"Two current cases with incomplete fund transfer documentation.",onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:true,first_case:true},sanctions:{screened:true,screenedDate:"03/07/2021",result:"Clear",provider:"LexisNexis",nextReview:"03/07/2026"},aml:{verified:true,verifiedDate:"03/07/2021",method:"Electronic verification",documents:["Firm registration","Director ID"],nextReview:"03/07/2026"},pep:{checked:true,checkedDate:"03/07/2021",result:"No PEP/RCA identified"},commissionHistory:[{date:"28/02/2026",amount:"£1,500",cases:1},{date:"31/01/2026",amount:"£3,000",cases:2}],cases:["ANN-2026-0885","ANN-2026-0876","ANN-2025-0712"]},
+  {id:"IFA-006",firm:"Rathbones",type:"Regional IFA",fcaNumber:"070493",unipaussId:"RB-UP-88341",status:"Active",relationshipManager:"Kevin Jones",lastContact:"05/03/2026",onboardedDate:"18/11/2019",reviewDueDate:"18/11/2024",commissionType:"Indemnity",initialCommission:1.5,trailCommission:0.0,paymentTerms:"Monthly",preferredContact:"Mailock",totalCasesSubmitted:28,casesCompleted:23,casesPending:3,casesIncomplete:2,totalPremium:"£3,812,500",commissionPaid:"£57,188",address:"8 Finsbury Circus, London, EC2M 7AZ",contact:"annuities@rathbones.com / 020 7399 0000",notes:"Annual review significantly overdue (Nov 2024). KYC/AML refresh required. Escalated to Compliance.",onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:true,first_case:true},sanctions:{screened:true,screenedDate:"15/11/2019",result:"Clear — REVIEW REQUIRED",provider:"ComplyAdvantage",nextReview:"15/11/2024"},aml:{verified:true,verifiedDate:"15/11/2019",method:"Electronic verification",documents:["Firm registration","Director ID","Source of business"],nextReview:"15/11/2024"},pep:{checked:true,checkedDate:"15/11/2019",result:"No PEP/RCA identified"},commissionHistory:[{date:"28/02/2026",amount:"£1,500",cases:1},{date:"31/01/2026",amount:"£3,000",cases:2},{date:"31/12/2025",amount:"£1,500",cases:1}],cases:["ANN-2026-0901","ANN-2026-0881","ANN-2026-0869"]},
+  {id:"IFA-007",firm:"Clarity Wealth Ltd",type:"Independent IFA",fcaNumber:"812334",unipaussId:"",status:"Onboarding",relationshipManager:"Sarah Ahmed",lastContact:"09/03/2026",onboardedDate:"",reviewDueDate:"",commissionType:"Indemnity",initialCommission:1.25,trailCommission:0.0,paymentTerms:"Monthly",preferredContact:"Email",totalCasesSubmitted:0,casesCompleted:0,casesPending:0,casesIncomplete:0,totalPremium:"£0",commissionPaid:"£0",address:"14 King Street, Manchester, M2 6AG",contact:"info@claritywealth.co.uk / 0161 834 5500",notes:"New IFA onboarding initiated 01/03/2026. KYC and sanctions in progress.",onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:false,pep_check:false,fca_check:true,unipass:false,agency_agreement:false,commission_agreed:false,system_access:false,first_case:false},sanctions:{screened:false,screenedDate:"",result:"In progress",provider:"ComplyAdvantage",nextReview:""},aml:{verified:true,verifiedDate:"05/03/2026",method:"Electronic verification",documents:["Firm registration","Director ID"],nextReview:""},pep:{checked:false,checkedDate:"",result:"Pending"},commissionHistory:[],cases:[]},
+  {id:"IFA-008",firm:"Meridian Financial Planning",type:"Independent IFA",fcaNumber:"934112",unipaussId:"",status:"Suspended",relationshipManager:"James Palmer",lastContact:"15/01/2026",onboardedDate:"04/04/2022",reviewDueDate:"04/04/2025",commissionType:"Indemnity",initialCommission:1.5,trailCommission:0.0,paymentTerms:"Monthly",preferredContact:"Email",totalCasesSubmitted:6,casesCompleted:3,casesPending:0,casesIncomplete:3,totalPremium:"£498,000",commissionPaid:"£7,470",address:"22 High Street, Leeds, LS1 4HR",contact:"admin@meridianfp.co.uk / 0113 245 8800",notes:"Suspended pending compliance investigation — three cases rejected for falsified medical questionnaires.",onboardingChecks:{application:true,kyc_id:true,kyc_aml:true,sanctions:true,pep_check:true,fca_check:true,unipass:true,agency_agreement:true,commission_agreed:true,system_access:false,first_case:true},sanctions:{screened:true,screenedDate:"02/04/2022",result:"Clear — REVIEW REQUIRED",provider:"LexisNexis",nextReview:"04/04/2025"},aml:{verified:true,verifiedDate:"02/04/2022",method:"Electronic verification",documents:["Firm registration"],nextReview:"04/04/2025"},pep:{checked:true,checkedDate:"02/04/2022",result:"No PEP/RCA identified"},commissionHistory:[{date:"30/11/2025",amount:"£1,500",cases:1}],cases:[]},
 ];
 
 // ─── CASE DATA ────────────────────────────────────────────────────────────────
@@ -201,7 +65,7 @@ const INITIAL_CASES = [
   {id:"ANN-2026-0879",name:"Anne-Marie Gallagher",age:65,fund:"£134,800",stage:4,urgent:false,ifa:"Quilter",ifaId:"IFA-003",days:5,annuityType:"Escalating 3% — Joint Life",dob:"27/02/1961",gender:"Female",smoker:"Non-smoker",postcode:"L1 8JQ",paymentFreq:"Monthly",guaranteePeriod:"10 years",niNumber:"AG112344B",address:"88 Bold Street, Liverpool, L1 8JQ",contact:"07823 556 221 / amgallagher@gmail.com",repriceReason:"Fund value changed — CETV uplift",newRate:"4.92% p.a.",previousRate:"4.88% p.a.",rateChange:"+0.04%",validityExpiry:"17 Mar 2026",notes:"CETV increased on recalculation."},
   {id:"ANN-2026-0882",name:"Patricia Walmsley",age:65,fund:"£214,000",stage:5,urgent:false,ifa:"Quilter",ifaId:"IFA-003",days:12,annuityType:"Enhanced — Single Life",dob:"09/01/1961",gender:"Female",smoker:"Non-smoker",postcode:"YO1 9RY",paymentFreq:"Monthly",guaranteePeriod:"5 years",niNumber:"PW334112A",address:"3 The Shambles, York, YO1 9RY",contact:"07934 221 445 / p.walmsley@outlook.com",reinsurer:"Munich Re",treatyRef:"MR-2026-4421",sumReinsured:"£214,000",submissionDate:"25 Feb 2026",counterOffer:"None",notes:"Facultative submission — awaiting Munich Re decision."},
   {id:"ANN-2026-0875",name:"Frederick Nolan",age:70,fund:"£289,500",stage:5,urgent:true,ifa:"Hargreaves Lansdown",ifaId:"IFA-001",days:22,annuityType:"Enhanced — Joint Life",dob:"04/05/1955",gender:"Male",smoker:"Ex-smoker",postcode:"EH2 4RJ",paymentFreq:"Monthly",guaranteePeriod:"None",niNumber:"FN221834C",address:"21 George Street, Edinburgh, EH2 4RJ",contact:"07612 334 887 / f.nolan@gmail.com",reinsurer:"RGA UK",treatyRef:"RGA-2026-1182",sumReinsured:"£289,500",submissionDate:"15 Feb 2026",counterOffer:"RGA accepting at +15% loading. Chief UW review required.",notes:"Counter-offer requires Chief UW acceptance."},
-  {id:"ANN-2026-0876",name:"David Cartwright",age:70,fund:"£67,400",stage:6,urgent:false,ifa:"Brewin Dolphin",ifaId:"IFA-005",days:8,annuityType:"Escalating 3% — Joint Life",dob:"19/10/1955",gender:"Male",smoker:"Non-smoker",postcode:"B1 2JB",paymentFreq:"Monthly",guaranteePeriod:"5 years",niNumber:"DC441823B",address:"7 Colmore Row, Birmingham, B1 2JB",contact:"07534 221 009 / d.cartwright@hotmail.com",cedingProvider:"Legal & General Workplace Pension",expectedTransfer:"£67,400",receivedAmount:"£62,800",origoRef:"ORG-2026-88421",reconciled:"No — shortfall £4,600",notes:"Partial transfer. Second tranche expected 14/03."},
+  {id:"ANN-2026-0876",name:"David Cartwright",age:70,fund:"£67,400",stage:6,urgent:false,ifa:"Brewin Dolphin",ifaId:"IFA-005",days:8,annuityType:"Escalating 3% — Joint Life",dob:"19/10/1955",gender:"Male",smoker:"Non-smoker",postcode:"B1 2JB",paymentFreq:"Monthly",guaranteePeriod:"5 years",niNumber:"DC441823B",address:"7 Colmore Row, Birmingham, B1 2JB",contact:"07534 221 009 / d.cartwright@hotmail.com",cedingProvider:"Legal and General Workplace Pension",expectedTransfer:"£67,400",receivedAmount:"£62,800",origoRef:"ORG-2026-88421",reconciled:"No — shortfall £4,600",notes:"Partial transfer. Second tranche expected 14/03."},
   {id:"ANN-2026-0871",name:"Irene Blackwood",age:68,fund:"£115,900",stage:6,urgent:true,ifa:"Tilney",ifaId:"IFA-004",days:18,annuityType:"Level — Single Life",dob:"30/06/1957",gender:"Female",smoker:"Non-smoker",postcode:"CF10 1EP",paymentFreq:"Monthly",guaranteePeriod:"10 years",niNumber:"IB882341D",address:"14 Park Place, Cardiff, CF10 1EP",contact:"07923 441 556 / i.blackwood@yahoo.co.uk",cedingProvider:"Aviva Pension (Occupational)",expectedTransfer:"£115,900",receivedAmount:"£0",origoRef:"ORG-2026-87334",reconciled:"No — nothing received",notes:"30-day lapse warning in 12 days."},
   {id:"ANN-2026-0869",name:"Gerald Morrison",age:74,fund:"£128,750",stage:7,urgent:false,ifa:"Rathbones",ifaId:"IFA-006",days:3,annuityType:"Enhanced — Single Life",dob:"22/02/1952",gender:"Male",smoker:"Ex-smoker",postcode:"SO14 1AR",paymentFreq:"Monthly",guaranteePeriod:"None",niNumber:"GM334112A",address:"3 Oxford Street, Southampton, SO14 1AR",contact:"07812 334 991 / g.morrison@btinternet.com",policyNumber:"POL-2026-00412",commencementDate:"01 Apr 2026",firstPaymentDate:"30 Apr 2026",annualIncome:"£8,142",coolingOffExpiry:"01 May 2026",ifaCommission:"£1,931.25",notes:"Documents sent to policyholder via DocuSign."},
   {id:"ANN-2026-0864",name:"Vera Hutchinson",age:66,fund:"£93,200",stage:7,urgent:false,ifa:"St. James's Place",ifaId:"IFA-002",days:6,annuityType:"Level — Joint Life",dob:"08/09/1959",gender:"Female",smoker:"Non-smoker",postcode:"NE1 7RU",paymentFreq:"Monthly",guaranteePeriod:"5 years",niNumber:"VH221934C",address:"9 Grey Street, Newcastle, NE1 7RU",contact:"07723 556 334 / v.hutchinson@gmail.com",policyNumber:"POL-2026-00398",commencementDate:"01 Mar 2026",firstPaymentDate:"31 Mar 2026",annualIncome:"£5,124",coolingOffExpiry:"31 Mar 2026",ifaCommission:"£1,398.00",notes:"Policy live. Cooling off expires 31 Mar."},
@@ -210,19 +74,103 @@ const INITIAL_CASES = [
   {id:"ANN-2025-0712",name:"Norman Blackhurst",age:80,fund:"£72,400",stage:8,urgent:true,ifa:"Brewin Dolphin",ifaId:"IFA-005",days:341,annuityType:"Level — Single Life",dob:"17/07/1945",gender:"Male",smoker:"Non-smoker",postcode:"PR1 2LL",paymentFreq:"Monthly",guaranteePeriod:"5 years",niNumber:"NB334512D",address:"6 Fishergate, Preston, PR1 2LL",contact:"07634 221 009 / n.blackhurst@hotmail.com",policyNumber:"POL-2025-00241",commencementDate:"01 Apr 2025",annualIncome:"£4,320",lastPaymentDate:"Returned — bank details changed",nextPaymentDate:"31 Mar 2026",notes:"February payment returned. New bank details required urgently."},
 ];
 
-function buildInitialChecks() {
-  const s={};
-  INITIAL_CASES.forEach(c=>{s[c.id]={};(STAGE_CHECKS[c.stage]||[]).forEach(ch=>{s[c.id][ch.id]=false;});});
-  return s;
-}
+function buildInitialChecks(){const s={};INITIAL_CASES.forEach(c=>{s[c.id]={};(STAGE_CHECKS[c.stage]||[]).forEach(ch=>{s[c.id][ch.id]=false;});});return s;}
+function buildInitialAudit(){return{"ANN-2026-0891":[{ts:"05/03/2026 09:14",user:"J. Palmer (UW)",action:"iGPR request raised for Margaret Thornton"}],"ANN-2026-0875":[{ts:"15/02/2026 11:30",user:"S. Ahmed (UW)",action:"Submission sent to RGA UK — ref RGA-2026-1182"},{ts:"07/03/2026 14:22",user:"S. Ahmed (UW)",action:"Counter-offer received from RGA — loading +15%"}],"ANN-2025-0698":[{ts:"01/03/2026 16:45",user:"System",action:"Death notification received via DWP Tell Us Once"},{ts:"02/03/2026 09:00",user:"K. Jones (Ops)",action:"Survivor pension activated at 50% — £411.75/month"}]};}
 
-function buildInitialAudit() {
-  return {
-    "ANN-2026-0891":[{ts:"05/03/2026 09:14",user:"J. Palmer (UW)",action:"iGPR request raised for Margaret Thornton"}],
-    "ANN-2026-0875":[{ts:"15/02/2026 11:30",user:"S. Ahmed (UW)",action:"Submission sent to RGA UK — ref RGA-2026-1182"},{ts:"07/03/2026 14:22",user:"S. Ahmed (UW)",action:"Counter-offer received from RGA — loading +15%"}],
-    "ANN-2025-0698":[{ts:"01/03/2026 16:45",user:"System",action:"Death notification received via DWP Tell Us Once"},{ts:"02/03/2026 09:00",user:"K. Jones (Ops)",action:"Survivor pension activated at 50% — £411.75/month"}],
-  };
-}
+// ─── RISK DATA ────────────────────────────────────────────────────────────────
+const MORBIDITY_GROUPS = [
+  {id:"standard",label:"Standard",color:RC.green,riskMultiplier:1.00},
+  {id:"cardiovascular",label:"Cardiovascular",color:RC.red,riskMultiplier:1.68},
+  {id:"diabetes",label:"Diabetes",color:RC.amber,riskMultiplier:1.45},
+  {id:"smoker",label:"Smoker / Ex-smoker",color:RC.orange,riskMultiplier:1.52},
+  {id:"respiratory",label:"Respiratory / COPD",color:RC.cyan,riskMultiplier:1.61},
+  {id:"obesity",label:"Obesity (BMI>30)",color:RC.purple,riskMultiplier:1.38},
+  {id:"multimorbid",label:"Multi-morbidity 3+",color:RC.pink,riskMultiplier:2.10},
+  {id:"neurological",label:"Neurological",color:RC.indigo,riskMultiplier:1.74},
+];
+const POPULATIONS = {
+  inForce:[
+    {morbidity:"standard",count:142,avgAge:72.1,maleCount:68,femaleCount:74,avgFund:98400,avgRate:5.12,socioAB:28,socioC1:42,socioC2:38,socioDE:34},
+    {morbidity:"cardiovascular",count:48,avgAge:73.8,maleCount:28,femaleCount:20,avgFund:112000,avgRate:5.84,socioAB:9,socioC1:14,socioC2:15,socioDE:10},
+    {morbidity:"diabetes",count:39,avgAge:71.4,maleCount:22,femaleCount:17,avgFund:87500,avgRate:5.71,socioAB:6,socioC1:11,socioC2:13,socioDE:9},
+    {morbidity:"smoker",count:31,avgAge:70.2,maleCount:20,femaleCount:11,avgFund:76200,avgRate:5.66,socioAB:4,socioC1:8,socioC2:12,socioDE:7},
+    {morbidity:"respiratory",count:24,avgAge:74.1,maleCount:13,femaleCount:11,avgFund:91000,avgRate:5.79,socioAB:3,socioC1:7,socioC2:9,socioDE:5},
+    {morbidity:"obesity",count:19,avgAge:69.8,maleCount:9,femaleCount:10,avgFund:69800,avgRate:5.54,socioAB:2,socioC1:5,socioC2:7,socioDE:5},
+    {morbidity:"multimorbid",count:14,avgAge:75.6,maleCount:7,femaleCount:7,avgFund:143200,avgRate:6.21,socioAB:3,socioC1:4,socioC2:4,socioDE:3},
+    {morbidity:"neurological",count:11,avgAge:74.9,maleCount:5,femaleCount:6,avgFund:108000,avgRate:6.04,socioAB:2,socioC1:3,socioC2:4,socioDE:2},
+  ],
+  inApplication:[
+    {morbidity:"standard",count:38,avgAge:66.4,maleCount:18,femaleCount:20,avgFund:104200,avgRate:5.08,socioAB:8,socioC1:12,socioC2:11,socioDE:7},
+    {morbidity:"cardiovascular",count:14,avgAge:68.2,maleCount:9,femaleCount:5,avgFund:118400,avgRate:5.79,socioAB:3,socioC1:4,socioC2:4,socioDE:3},
+    {morbidity:"diabetes",count:11,avgAge:67.1,maleCount:7,femaleCount:4,avgFund:92100,avgRate:5.68,socioAB:2,socioC1:3,socioC2:4,socioDE:2},
+    {morbidity:"smoker",count:9,avgAge:65.8,maleCount:6,femaleCount:3,avgFund:71400,avgRate:5.62,socioAB:1,socioC1:2,socioC2:4,socioDE:2},
+    {morbidity:"respiratory",count:7,avgAge:68.9,maleCount:4,femaleCount:3,avgFund:84300,avgRate:5.74,socioAB:1,socioC1:2,socioC2:3,socioDE:1},
+    {morbidity:"obesity",count:5,avgAge:65.2,maleCount:2,femaleCount:3,avgFund:63200,avgRate:5.49,socioAB:0,socioC1:1,socioC2:2,socioDE:2},
+    {morbidity:"multimorbid",count:4,avgAge:70.1,maleCount:2,femaleCount:2,avgFund:157800,avgRate:6.18,socioAB:1,socioC1:1,socioC2:1,socioDE:1},
+    {morbidity:"neurological",count:3,avgAge:69.4,maleCount:1,femaleCount:2,avgFund:121000,avgRate:6.01,socioAB:0,socioC1:1,socioC2:1,socioDE:1},
+  ],
+  inQuotation:[
+    {morbidity:"standard",count:62,avgAge:64.8,maleCount:28,femaleCount:34,avgFund:98800,avgRate:5.04,socioAB:14,socioC1:18,socioC2:17,socioDE:13},
+    {morbidity:"cardiovascular",count:18,avgAge:66.9,maleCount:11,femaleCount:7,avgFund:107200,avgRate:5.76,socioAB:3,socioC1:5,socioC2:6,socioDE:4},
+    {morbidity:"diabetes",count:14,avgAge:65.4,maleCount:9,femaleCount:5,avgFund:83400,avgRate:5.63,socioAB:2,socioC1:4,socioC2:5,socioDE:3},
+    {morbidity:"smoker",count:12,avgAge:64.1,maleCount:8,femaleCount:4,avgFund:68700,avgRate:5.58,socioAB:1,socioC1:3,socioC2:5,socioDE:3},
+    {morbidity:"respiratory",count:8,avgAge:67.2,maleCount:5,femaleCount:3,avgFund:79100,avgRate:5.71,socioAB:1,socioC1:2,socioC2:3,socioDE:2},
+    {morbidity:"obesity",count:7,avgAge:63.9,maleCount:3,femaleCount:4,avgFund:61400,avgRate:5.46,socioAB:0,socioC1:2,socioC2:3,socioDE:2},
+    {morbidity:"multimorbid",count:5,avgAge:69.2,maleCount:3,femaleCount:2,avgFund:168400,avgRate:6.15,socioAB:1,socioC1:2,socioC2:1,socioDE:1},
+    {morbidity:"neurological",count:4,avgAge:68.1,maleCount:2,femaleCount:2,avgFund:115600,avgRate:5.98,socioAB:0,socioC1:1,socioC2:2,socioDE:1},
+  ],
+};
+const FUND_BAND_DATA = {
+  inForce:[{band:"<£50k",count:38,avgRate:5.44,riskScore:1.18},{band:"£50-100k",count:124,avgRate:5.51,riskScore:1.31},{band:"£100-200k",count:112,avgRate:5.67,riskScore:1.48},{band:"£200-300k",count:42,avgRate:5.89,riskScore:1.62},{band:">£300k",count:12,avgRate:6.04,riskScore:1.71}],
+  inApplication:[{band:"<£50k",count:8,avgRate:5.38,riskScore:1.12},{band:"£50-100k",count:29,avgRate:5.46,riskScore:1.27},{band:"£100-200k",count:34,avgRate:5.64,riskScore:1.44},{band:"£200-300k",count:16,avgRate:5.86,riskScore:1.58},{band:">£300k",count:4,avgRate:6.01,riskScore:1.68}],
+  inQuotation:[{band:"<£50k",count:14,avgRate:5.32,riskScore:1.09},{band:"£50-100k",count:42,avgRate:5.43,riskScore:1.22},{band:"£100-200k",count:48,avgRate:5.61,riskScore:1.41},{band:"£200-300k",count:22,avgRate:5.83,riskScore:1.55},{band:">£300k",count:4,avgRate:5.98,riskScore:1.65}],
+};
+const AGE_BAND_DATA = {
+  inForce:[{band:"<65",count:22,male:11,female:11,enhanced:6},{band:"65-70",count:94,male:49,female:45,enhanced:31},{band:"70-75",count:148,male:74,female:74,enhanced:62},{band:"75-80",count:82,male:38,female:44,enhanced:41},{band:"80+",count:32,male:14,female:18,enhanced:19}],
+  inApplication:[{band:"<65",count:19,male:9,female:10,enhanced:5},{band:"65-70",count:35,male:18,female:17,enhanced:14},{band:"70-75",count:29,male:14,female:15,enhanced:12},{band:"75-80",count:8,male:4,female:4,enhanced:5},{band:"80+",count:0,male:0,female:0,enhanced:0}],
+  inQuotation:[{band:"<65",count:38,male:18,female:20,enhanced:9},{band:"65-70",count:58,male:29,female:29,enhanced:22},{band:"70-75",count:28,male:14,female:14,enhanced:11},{band:"75-80",count:6,male:3,female:3,enhanced:3},{band:"80+",count:0,male:0,female:0,enhanced:0}],
+};
+const MARGIN_DATA = [
+  {segment:"Standard",grossPremium:104200,expClaims:52100,reinsurance:8336,commission:1563,opEx:4168,netMargin:38033,marginPct:36.5},
+  {segment:"Cardiovascular",grossPremium:118400,expClaims:74592,reinsurance:9472,commission:1776,opEx:4736,netMargin:27824,marginPct:23.5},
+  {segment:"Diabetes",grossPremium:92100,expClaims:55260,reinsurance:7368,commission:1382,opEx:3684,netMargin:24406,marginPct:26.5},
+  {segment:"Smoker",grossPremium:71400,expClaims:44982,reinsurance:5712,commission:1071,opEx:2856,netMargin:16779,marginPct:23.5},
+  {segment:"Respiratory",grossPremium:84300,expClaims:54033,reinsurance:6744,commission:1265,opEx:3372,netMargin:18886,marginPct:22.4},
+  {segment:"Obesity",grossPremium:63200,expClaims:36656,reinsurance:5056,commission:948,opEx:2528,netMargin:18012,marginPct:28.5},
+  {segment:"Multi-morbid",grossPremium:157800,expClaims:110460,reinsurance:12624,commission:2367,opEx:6312,netMargin:26037,marginPct:16.5},
+  {segment:"Neurological",grossPremium:121000,expClaims:79860,reinsurance:9680,commission:1815,opEx:4840,netMargin:24805,marginPct:20.5},
+];
+const SOCIOECO_RISK = [
+  {socio:"AB",standard:29,enhanced:10,highrisk:5,avgFund:148000,avgAge:67.2},
+  {socio:"C1",standard:52,enhanced:24,highrisk:9,avgFund:112000,avgAge:69.8},
+  {socio:"C2",standard:61,enhanced:31,highrisk:14,avgFund:84000,avgAge:71.4},
+  {socio:"DE",standard:44,enhanced:29,highrisk:16,avgFund:61000,avgAge:72.9},
+];
+const GENDER_RISK = {
+  inForce:[{name:"Male",count:172,enhanced:98,avgAge:72.8,avgFund:94200,avgRate:5.58},{name:"Female",count:156,enhanced:74,avgAge:71.6,avgFund:103800,avgRate:5.31}],
+  inApplication:[{name:"Male",count:48,enhanced:31,avgAge:67.4,avgFund:98400,avgRate:5.52},{name:"Female",count:43,enhanced:21,avgAge:66.9,avgFund:109200,avgRate:5.29}],
+  inQuotation:[{name:"Male",count:69,enhanced:38,avgAge:66.1,avgFund:91800,avgRate:5.48},{name:"Female",count:61,enhanced:24,avgAge:65.4,avgFund:102400,avgRate:5.26}],
+};
+const PIPELINE_TREND = [
+  {month:"Oct 25",quotations:88,applications:44,issued:21,premiumMn:4.2},
+  {month:"Nov 25",quotations:94,applications:47,issued:23,premiumMn:4.6},
+  {month:"Dec 25",quotations:79,applications:39,issued:19,premiumMn:3.8},
+  {month:"Jan 26",quotations:101,applications:52,issued:26,premiumMn:5.1},
+  {month:"Feb 26",quotations:108,applications:55,issued:28,premiumMn:5.4},
+  {month:"Mar 26",quotations:130,applications:91,issued:34,premiumMn:6.2},
+];
+const RADAR_DATA = [
+  {subject:"Cardiovascular",inForce:68,inApplication:64,inQuotation:57},
+  {subject:"Diabetes",inForce:55,inApplication:51,inQuotation:46},
+  {subject:"Smoking",inForce:43,inApplication:38,inQuotation:34},
+  {subject:"Obesity",inForce:34,inApplication:31,inQuotation:28},
+  {subject:"Respiratory",inForce:48,inApplication:43,inQuotation:39},
+  {subject:"Multi-morbid",inForce:29,inApplication:25,inQuotation:21},
+];
+const POP_KEYS = ["inForce","inApplication","inQuotation"];
+const POP_LABELS = {inForce:"In-Force",inApplication:"In Application",inQuotation:"In Quotation"};
+const POP_COLORS = {inForce:RC.green,inApplication:RC.amber,inQuotation:RC.blue};
+const RISK_VIEWS = ["Overview","Morbidity Risk","Demographics","Fund Bands","Socioeconomic","Margin & Profit","Pipeline MI"];
 
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
 export default function AnnuityPortal() {
@@ -240,35 +188,23 @@ export default function AnnuityPortal() {
   const si = selectedIfa ? ifas.find(i=>i.id===selectedIfa) : null;
 
   function showToast(msg,type="success"){setToast({msg,type});setTimeout(()=>setToast(null),3500);}
-
   function toggleCheck(caseId,checkId){setChecks(p=>({...p,[caseId]:{...p[caseId],[checkId]:!p[caseId][checkId]}}))}
-
   function advanceStage(caseId){
-    const c=cases.find(x=>x.id===caseId); if(!c||c.stage>=8) return;
-    const ns=c.stage+1, nc={};
-    (STAGE_CHECKS[ns]||[]).forEach(ch=>{nc[ch.id]=false;});
+    const c=cases.find(x=>x.id===caseId);if(!c||c.stage>=8)return;
+    const ns=c.stage+1,nc={};(STAGE_CHECKS[ns]||[]).forEach(ch=>{nc[ch.id]=false;});
     setCases(p=>p.map(x=>x.id===caseId?{...x,stage:ns}:x));
     setChecks(p=>({...p,[caseId]:nc}));
     const ts=new Date().toLocaleDateString("en-GB")+" "+new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
     setAudit(p=>({...p,[caseId]:[...(p[caseId]||[]),{ts,user:"Current User",action:`Case advanced: ${STAGE_LABELS[c.stage]} → ${STAGE_LABELS[ns]}`}]}));
     showToast(`${c.name} advanced to Stage ${ns}: ${STAGE_LABELS[ns]}`);
   }
-
-  function toggleOnboardingCheck(ifaId,checkId){
-    setIfas(p=>p.map(i=>i.id===ifaId?{...i,onboardingChecks:{...i.onboardingChecks,[checkId]:!i.onboardingChecks[checkId]}}:i));
-  }
-
+  function toggleOnboardingCheck(ifaId,checkId){setIfas(p=>p.map(i=>i.id===ifaId?{...i,onboardingChecks:{...i.onboardingChecks,[checkId]:!i.onboardingChecks[checkId]}}:i));}
   function getCheckProgress(caseId,stage){
-    const sc=STAGE_CHECKS[stage]||[], cc=checks[caseId]||{};
-    const crit=sc.filter(c=>c.critical), done=sc.filter(c=>cc[c.id]).length, cd=crit.filter(c=>cc[c.id]).length;
-    return {done,total:sc.length,criticalDone:cd,criticalTotal:crit.length,allCriticalDone:cd===crit.length&&crit.length>0,pct:sc.length?Math.round((done/sc.length)*100):0};
+    const sc=STAGE_CHECKS[stage]||[],cc=checks[caseId]||{};
+    const crit=sc.filter(c=>c.critical),done=sc.filter(c=>cc[c.id]).length,cd=crit.filter(c=>cc[c.id]).length;
+    return{done,total:sc.length,criticalDone:cd,criticalTotal:crit.length,allCriticalDone:cd===crit.length&&crit.length>0,pct:sc.length?Math.round((done/sc.length)*100):0};
   }
-
-  const allActions=cases.flatMap(c=>{
-    const cc=checks[c.id]||{};
-    return (STAGE_CHECKS[c.stage]||[]).filter(ch=>!cc[ch.id]).map(ch=>({caseId:c.id,caseName:c.name,stage:c.stage,checkId:ch.id,label:ch.label,critical:ch.critical,urgent:c.urgent,ifa:c.ifa,fund:c.fund}));
-  });
-
+  const allActions=cases.flatMap(c=>{const cc=checks[c.id]||{};return(STAGE_CHECKS[c.stage]||[]).filter(ch=>!cc[ch.id]).map(ch=>({caseId:c.id,caseName:c.name,stage:c.stage,checkId:ch.id,label:ch.label,critical:ch.critical,urgent:c.urgent,ifa:c.ifa,fund:c.fund}));});
   const filteredCases=stageFilter?cases.filter(c=>c.stage===stageFilter):cases;
 
   return (
@@ -276,17 +212,17 @@ export default function AnnuityPortal() {
       {toast&&<div style={{position:"fixed",top:20,right:24,zIndex:1000,background:toast.type==="success"?"#0d2a17":"#2a0d0d",border:`1px solid ${toast.type==="success"?"#3fb950":"#f85149"}`,borderRadius:8,padding:"13px 20px",fontSize:13,color:"#e6edf3",boxShadow:"0 4px 24px #00000099",maxWidth:360}}>{toast.type==="success"?"✓ ":"⚠ "}{toast.msg}</div>}
 
       {/* Sidebar */}
-      <div style={{width:220,background:"#0a0e15",borderRight:"1px solid #161b22",display:"flex",flexDirection:"column",flexShrink:0}}>
+      <div style={{width:224,background:"#0a0e15",borderRight:"1px solid #161b22",display:"flex",flexDirection:"column",flexShrink:0}}>
         <div style={{padding:"24px 20px 20px",borderBottom:"1px solid #161b22"}}>
           <div style={{fontSize:10,letterSpacing:"0.25em",textTransform:"uppercase",color:"#4a6fa5",marginBottom:4}}>Annuity Operations</div>
           <div style={{fontSize:16,fontWeight:700,color:"#e6edf3"}}>PolicyFlow</div>
-          <div style={{fontSize:10,color:"#30363d",marginTop:2}}>v0.4 — IFA Module</div>
+          <div style={{fontSize:10,color:"#30363d",marginTop:2}}>v0.5 — Risk Analytics</div>
         </div>
         <nav style={{padding:"16px 0",flex:1}}>
-          {NAV.map(n=>(
+          {NAV.map((n,idx)=>(
             <div key={n} onClick={()=>{setNav(n);setSelectedCase(null);setSelectedIfa(null);setStageFilter(null);}}
-              style={{padding:"10px 20px",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:10,color:nav===n?"#e6edf3":"#6e7681",background:nav===n?"#161b22":"transparent",borderLeft:nav===n?"2px solid #d4a017":"2px solid transparent"}}>
-              <span>{["⬡","⬜","◎","◈","◈","⬢"][NAV.indexOf(n)]}</span>{n}
+              style={{padding:"10px 20px",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:10,color:nav===n?"#e6edf3":"#6e7681",background:nav===n?"#161b22":"transparent",borderLeft:nav===n?"2px solid #d4a017":"2px solid transparent"}}>
+              <span style={{fontSize:14}}>{["⬡","⬜","◎","◈","◉","◈","⬢"][idx]}</span>{n}
               {n==="Actions"&&allActions.filter(a=>a.critical).length>0&&<span style={{marginLeft:"auto",background:"#f8514922",border:"1px solid #f85149",color:"#f85149",borderRadius:10,padding:"1px 6px",fontSize:10}}>{allActions.filter(a=>a.critical).length}</span>}
               {n==="IFA Relationships"&&ifas.filter(i=>i.status==="Suspended"||i.status==="Onboarding").length>0&&<span style={{marginLeft:"auto",background:"#d4a01722",border:"1px solid #d4a017",color:"#d4a017",borderRadius:10,padding:"1px 6px",fontSize:10}}>{ifas.filter(i=>i.status==="Suspended"||i.status==="Onboarding").length}</span>}
             </div>
@@ -309,23 +245,24 @@ export default function AnnuityPortal() {
           </div>
           <div style={{display:"flex",gap:10}}>
             <div style={{background:"#161b22",border:"1px solid #30363d",borderRadius:6,padding:"6px 14px",fontSize:12,color:"#8b949e"}}>Mon 9 Mar 2026</div>
-            {(selectedCase||selectedIfa)&&<button onClick={()=>{setSelectedCase(null);setSelectedIfa(null);}} style={{background:"transparent",border:"1px solid #30363d",color:"#8b949e",borderRadius:6,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>← Back</button>}
+            {(selectedCase||selectedIfa)&&<button onClick={()=>{setSelectedCase(null);setSelectedIfa(null);}} style={{background:"transparent",border:"1px solid #30363d",color:"#8b949e",borderRadius:6,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>Back</button>}
           </div>
         </div>
 
         <div style={{flex:1,overflowY:"auto",padding:28}}>
-          {nav==="Dashboard"&&!selectedCase&&<Dashboard cases={cases} ifas={ifas} getCheckProgress={getCheckProgress} onSelectCase={id=>{setSelectedCase(id);setNav("Cases");}} onSelectStage={s=>{setStageFilter(s);setNav("Cases");}} />}
+          {nav==="Dashboard"&&!selectedCase&&<PortalDashboard cases={cases} ifas={ifas} getCheckProgress={getCheckProgress} onSelectCase={id=>{setSelectedCase(id);setNav("Cases");}} onSelectStage={s=>{setStageFilter(s);setNav("Cases");}} />}
           {nav==="Cases"&&!selectedCase&&<>
             <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
               <FilterBtn active={!stageFilter} onClick={()=>setStageFilter(null)} label={`All (${cases.length})`} color="#e6edf3" />
-              {STAGES.map(s=>{const cnt=cases.filter(c=>c.stage===s.n).length;if(!cnt)return null;return <FilterBtn key={s.n} active={stageFilter===s.n} onClick={()=>setStageFilter(stageFilter===s.n?null:s.n)} label={`${s.label} (${cnt})`} color={STAGE_COLORS[s.n]} />;})}
+              {STAGES.map(s=>{const cnt=cases.filter(c=>c.stage===s.n).length;if(!cnt)return null;return<FilterBtn key={s.n} active={stageFilter===s.n} onClick={()=>setStageFilter(stageFilter===s.n?null:s.n)} label={`${s.label} (${cnt})`} color={STAGE_COLORS[s.n]} />;})}
             </div>
             <CaseTable cases={filteredCases} getCheckProgress={getCheckProgress} onSelect={id=>setSelectedCase(id)} />
           </>}
           {selectedCase&&sc&&<CaseDetail c={sc} checks={checks[sc.id]||{}} audit={audit[sc.id]||[]} getCheckProgress={getCheckProgress} onToggleCheck={chId=>toggleCheck(sc.id,chId)} onAdvance={()=>advanceStage(sc.id)} />}
           {nav==="Actions"&&!selectedCase&&<ActionsView allActions={allActions} onToggleCheck={(cId,chId)=>toggleCheck(cId,chId)} onGoToCase={id=>{setSelectedCase(id);setNav("Cases");}} />}
           {nav==="IFA Relationships"&&!selectedIfa&&<IFAList ifas={ifas} cases={cases} onSelect={id=>setSelectedIfa(id)} />}
-          {nav==="IFA Relationships"&&selectedIfa&&si&&<IFADetail ifa={si} cases={cases.filter(c=>c.ifaId===si.id)} onToggleCheck={(chId)=>toggleOnboardingCheck(si.id,chId)} showToast={showToast} />}
+          {nav==="IFA Relationships"&&selectedIfa&&si&&<IFADetail ifa={si} cases={cases.filter(c=>c.ifaId===si.id)} onToggleCheck={chId=>toggleOnboardingCheck(si.id,chId)} showToast={showToast} />}
+          {nav==="Risk Analytics"&&<RiskDashboard />}
           {nav==="Workflow Reference"&&<WorkflowRef />}
           {nav==="Integrations"&&<IntegrationsView />}
         </div>
@@ -334,13 +271,15 @@ export default function AnnuityPortal() {
   );
 }
 
-// ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function Dashboard({cases,ifas,getCheckProgress,onSelectCase,onSelectStage}){
+// ═══════════════════════════════════════════════════════════
+// PORTAL COMPONENTS
+// ═══════════════════════════════════════════════════════════
+function PortalDashboard({cases,ifas,getCheckProgress,onSelectCase,onSelectStage}){
   const urgent=cases.filter(c=>c.urgent).length;
-  const overdueiFA=ifas.filter(i=>i.status==="Active"&&i.reviewDueDate&&new Date(i.reviewDueDate.split("/").reverse().join("-"))<new Date()).length;
+  const overdueiFA=ifas.filter(i=>i.status==="Active"&&i.reviewDueDate&&(()=>{const[d,m,y]=i.reviewDueDate.split("/");return new Date(`${y}-${m}-${d}`)<new Date();})()).length;
   return(<>
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,marginBottom:28}}>
-      {[{label:"Active Cases",value:cases.length,delta:`${urgent} urgent`,bad:urgent>0},{label:"Awaiting Medical",value:cases.filter(c=>c.stage===3).length,delta:"1 past SLA",bad:true},{label:"IFA Partners",value:ifas.filter(i=>i.status==="Active").length,delta:`${ifas.filter(i=>i.status==="Onboarding").length} onboarding · ${ifas.filter(i=>i.status==="Suspended").length} suspended`,bad:false},{label:"IFA Reviews Overdue",value:overdueiFA,delta:"KYC/AML refresh required",bad:overdueiFA>0}].map(s=>(
+      {[{label:"Active Cases",value:cases.length,delta:`${urgent} urgent`,bad:urgent>0},{label:"Awaiting Medical",value:cases.filter(c=>c.stage===3).length,delta:"1 past SLA",bad:true},{label:"IFA Partners",value:ifas.filter(i=>i.status==="Active").length,delta:`${ifas.filter(i=>i.status==="Onboarding").length} onboarding`,bad:false},{label:"IFA Reviews Overdue",value:overdueiFA,delta:"KYC/AML refresh required",bad:overdueiFA>0}].map(s=>(
         <div key={s.label} style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"18px 20px"}}>
           <div style={{fontSize:11,color:"#6e7681",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>{s.label}</div>
           <div style={{fontSize:32,fontWeight:700,color:"#e6edf3"}}>{s.value}</div>
@@ -357,7 +296,7 @@ function Dashboard({cases,ifas,getCheckProgress,onSelectCase,onSelectStage}){
           return(<div key={s.n} onClick={()=>onSelectStage(s.n)} style={{background:"#0a0e15",border:`1px solid ${STAGE_COLORS[s.n]}33`,borderRadius:8,padding:"14px 10px",textAlign:"center",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.borderColor=STAGE_COLORS[s.n]} onMouseLeave={e=>e.currentTarget.style.borderColor=STAGE_COLORS[s.n]+"33"}>
             <div style={{fontSize:24,fontWeight:700,color:STAGE_COLORS[s.n]}}>{sc.length}</div>
             <div style={{fontSize:9,color:"#6e7681",marginTop:3}}>{s.label}</div>
-            {sc.length>0&&<><div style={{marginTop:8,background:"#161b22",borderRadius:3,height:3}}><div style={{width:`${avg}%`,height:3,background:STAGE_COLORS[s.n],borderRadius:3}}/></div><div style={{fontSize:8,color:"#484f58",marginTop:3}}>{avg}% checks</div></>}
+            {sc.length>0&&<><div style={{marginTop:8,background:"#161b22",borderRadius:3,height:3}}><div style={{width:`${avg}%`,height:3,background:STAGE_COLORS[s.n],borderRadius:3}}/></div><div style={{fontSize:8,color:"#484f58",marginTop:3}}>{avg}%</div></>}
           </div>);
         })}
       </div>
@@ -367,7 +306,6 @@ function Dashboard({cases,ifas,getCheckProgress,onSelectCase,onSelectStage}){
   </>);
 }
 
-// ─── CASE TABLE ───────────────────────────────────────────────────────────────
 function CaseTable({cases,getCheckProgress,onSelect}){
   return(<div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,overflow:"hidden"}}>
     <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -392,14 +330,13 @@ function CaseTable({cases,getCheckProgress,onSelect}){
   </div>);
 }
 
-// ─── CASE DETAIL ──────────────────────────────────────────────────────────────
 function CaseDetail({c,checks,audit,getCheckProgress,onToggleCheck,onAdvance}){
   const [tab,setTab]=useState("checklist");
-  const sc=STAGE_CHECKS[c.stage]||[], p=getCheckProgress(c.id,c.stage), canAdvance=p.allCriticalDone&&c.stage<8;
+  const sc=STAGE_CHECKS[c.stage]||[],p=getCheckProgress(c.id,c.stage),canAdvance=p.allCriticalDone&&c.stage<8;
   return(<div><style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
     <div style={{animation:"fadeUp 0.2s ease"}}>
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
-        {[{l:"Fund Value",v:c.fund},{l:"Annuity Type",v:c.annuityType},{l:"IFA / Broker",v:c.ifa},{l:"Stage",v:`${c.stage}. ${STAGE_LABELS[c.stage]}`}].map(item=>(
+        {[{l:"Fund Value",v:c.fund},{l:"Annuity Type",v:c.annuityType},{l:"IFA",v:c.ifa},{l:"Stage",v:`${c.stage}. ${STAGE_LABELS[c.stage]}`}].map(item=>(
           <div key={item.l} style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:8,padding:"14px 16px"}}>
             <div style={{fontSize:10,letterSpacing:"0.15em",color:"#4a6fa5",textTransform:"uppercase",marginBottom:4}}>{item.l}</div>
             <div style={{fontSize:14,color:"#e6edf3",fontWeight:600}}>{item.v}</div>
@@ -427,28 +364,28 @@ function CaseDetail({c,checks,audit,getCheckProgress,onToggleCheck,onAdvance}){
             <div style={{fontSize:12,color:p.allCriticalDone?"#3fb950":"#d4a017"}}>{p.allCriticalDone?"✓ All critical complete":`${p.criticalDone}/${p.criticalTotal} critical done`}</div>
           </div>
           <div style={{background:"#161b22",borderRadius:4,height:6,marginBottom:6}}><div style={{width:`${p.pct}%`,height:6,background:p.allCriticalDone?"#3fb950":STAGE_COLORS[c.stage],borderRadius:4,transition:"width 0.4s"}}/></div>
-          <div style={{fontSize:11,color:"#6e7681"}}>{p.done} of {p.total} completed ({p.pct}%)</div>
+          <div style={{fontSize:11,color:"#6e7681"}}>{p.done} of {p.total} ({p.pct}%)</div>
         </div>
         <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,overflow:"hidden",marginBottom:16}}>
           {sc.map((ch,i)=>{const checked=checks[ch.id]||false;return(
-            <div key={ch.id} onClick={()=>onToggleCheck(ch.id)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",borderBottom:i<sc.length-1?"1px solid #161b22":"none",cursor:"pointer",background:checked?"#0d1f0d":"transparent",transition:"background 0.15s"}} onMouseEnter={e=>!checked&&(e.currentTarget.style.background="#161b22")} onMouseLeave={e=>!checked&&(e.currentTarget.style.background="transparent")}>
-              <div style={{width:22,height:22,borderRadius:5,border:`2px solid ${checked?"#3fb950":"#30363d"}`,background:checked?"#3fb950":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>{checked&&<span style={{color:"#0d1117",fontSize:13,fontWeight:900}}>✓</span>}</div>
+            <div key={ch.id} onClick={()=>onToggleCheck(ch.id)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",borderBottom:i<sc.length-1?"1px solid #161b22":"none",cursor:"pointer",background:checked?"#0d1f0d":"transparent"}} onMouseEnter={e=>!checked&&(e.currentTarget.style.background="#161b22")} onMouseLeave={e=>!checked&&(e.currentTarget.style.background="transparent")}>
+              <div style={{width:22,height:22,borderRadius:5,border:`2px solid ${checked?"#3fb950":"#30363d"}`,background:checked?"#3fb950":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{checked&&<span style={{color:"#0d1117",fontSize:13,fontWeight:900}}>✓</span>}</div>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,color:checked?"#6e7681":"#e6edf3",textDecoration:checked?"line-through":"none"}}>{ch.label}</div>
-                <div style={{fontSize:10,marginTop:2,color:ch.critical?(checked?"#3fb950":"#f85149"):"#484f58"}}>{ch.critical?(checked?"Critical — complete ✓":"Required to advance"):"Optional"}</div>
+                <div style={{fontSize:10,marginTop:2,color:ch.critical?(checked?"#3fb950":"#f85149"):"#484f58"}}>{ch.critical?(checked?"Critical — done":"Required to advance"):"Optional"}</div>
               </div>
             </div>
           );})}
         </div>
-        {c.stage<8?(<div style={{background:"#0a0e15",border:`1px solid ${canAdvance?"#3fb950":"#161b22"}`,borderRadius:10,padding:"18px 20px",transition:"border 0.3s"}}>
+        {c.stage<8?(<div style={{background:"#0a0e15",border:`1px solid ${canAdvance?"#3fb950":"#161b22"}`,borderRadius:10,padding:"18px 20px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
               <div style={{fontSize:13,color:canAdvance?"#e6edf3":"#484f58",fontWeight:600,marginBottom:4}}>Advance to Stage {c.stage+1}: {STAGE_LABELS[c.stage+1]}</div>
-              <div style={{fontSize:12,color:"#6e7681"}}>{canAdvance?"All critical checks complete — ready to progress.":`${p.criticalTotal-p.criticalDone} critical check(s) outstanding.`}</div>
+              <div style={{fontSize:12,color:"#6e7681"}}>{canAdvance?"All critical checks complete.":`${p.criticalTotal-p.criticalDone} critical check(s) outstanding.`}</div>
             </div>
-            <button onClick={canAdvance?onAdvance:undefined} style={{padding:"10px 28px",borderRadius:8,border:"none",cursor:canAdvance?"pointer":"not-allowed",background:canAdvance?"#166534":"#161b22",color:canAdvance?"#3fb950":"#484f58",fontSize:13,fontWeight:700,flexShrink:0,boxShadow:canAdvance?"0 0 16px #3fb95033":"none",transition:"all 0.2s"}}>{canAdvance?"Advance →":"Locked"}</button>
+            <button onClick={canAdvance?onAdvance:undefined} style={{padding:"10px 28px",borderRadius:8,border:"none",cursor:canAdvance?"pointer":"not-allowed",background:canAdvance?"#166534":"#161b22",color:canAdvance?"#3fb950":"#484f58",fontSize:13,fontWeight:700,flexShrink:0}}>{canAdvance?"Advance →":"Locked"}</button>
           </div>
-        </div>):(<div style={{background:"#0a0e15",border:"1px solid #3fb95033",borderRadius:10,padding:"16px 20px",textAlign:"center",color:"#3fb950",fontSize:13}}>✓ Policy is In-Force — final stage reached</div>)}
+        </div>):(<div style={{background:"#0a0e15",border:"1px solid #3fb95033",borderRadius:10,padding:"16px 20px",textAlign:"center",color:"#3fb950",fontSize:13}}>Policy In-Force — final stage</div>)}
       </div>}
       {tab==="details"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
@@ -471,8 +408,8 @@ function CaseDetail({c,checks,audit,getCheckProgress,onToggleCheck,onAdvance}){
         </div>
       </div>}
       {tab==="audit"&&<div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,overflow:"hidden"}}>
-        <div style={{padding:"12px 18px",borderBottom:"1px solid #161b22",fontSize:11,letterSpacing:"0.15em",textTransform:"uppercase",color:"#4a6fa5"}}>Immutable Audit Trail — FCA Compliant</div>
-        {audit.length===0?<div style={{padding:"28px 18px",fontSize:13,color:"#484f58",textAlign:"center"}}>No audit events yet</div>
+        <div style={{padding:"12px 18px",borderBottom:"1px solid #161b22",fontSize:11,letterSpacing:"0.15em",textTransform:"uppercase",color:"#4a6fa5"}}>Immutable Audit Trail — FCA</div>
+        {audit.length===0?<div style={{padding:"28px 18px",fontSize:13,color:"#484f58",textAlign:"center"}}>No events yet</div>
         :[...audit].reverse().map((e,i)=><div key={i} style={{padding:"12px 18px",borderBottom:"1px solid #0d1117",display:"flex",gap:14}}>
           <div style={{fontSize:10,color:"#484f58",fontFamily:"monospace",whiteSpace:"nowrap",paddingTop:2}}>{e.ts}</div>
           <div style={{flex:1}}><div style={{fontSize:12,color:"#e6edf3"}}>{e.action}</div><div style={{fontSize:10,color:"#6e7681",marginTop:2}}>{e.user}</div></div>
@@ -483,16 +420,13 @@ function CaseDetail({c,checks,audit,getCheckProgress,onToggleCheck,onAdvance}){
   </div>);
 }
 
-// ─── ACTIONS VIEW ─────────────────────────────────────────────────────────────
 function ActionsView({allActions,onToggleCheck,onGoToCase}){
-  const [filter,setFilter]=useState("all");
-  const [sf,setSf]=useState(null);
+  const [filter,setFilter]=useState("all");const [sf,setSf]=useState(null);
   const displayed=allActions.filter(a=>filter==="critical"?a.critical:filter==="urgent"?a.urgent:true).filter(a=>sf?a.stage===sf:true);
-  const byStage={};
-  displayed.forEach(a=>{if(!byStage[a.stage])byStage[a.stage]=[];byStage[a.stage].push(a);});
+  const byStage={};displayed.forEach(a=>{if(!byStage[a.stage])byStage[a.stage]=[];byStage[a.stage].push(a);});
   return(<div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:22}}>
-      {[{label:"Total Outstanding",value:allActions.length,color:"#4a6fa5"},{label:"Critical (block stage)",value:allActions.filter(a=>a.critical).length,color:"#f85149"},{label:"On Urgent Cases",value:allActions.filter(a=>a.urgent).length,color:"#d4a017"}].map(s=>(
+      {[{label:"Total Outstanding",value:allActions.length,color:"#4a6fa5"},{label:"Critical",value:allActions.filter(a=>a.critical).length,color:"#f85149"},{label:"On Urgent Cases",value:allActions.filter(a=>a.urgent).length,color:"#d4a017"}].map(s=>(
         <div key={s.label} style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
           <div style={{fontSize:11,color:"#6e7681",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>{s.label}</div>
           <div style={{fontSize:28,fontWeight:700,color:s.color}}>{s.value}</div>
@@ -502,7 +436,7 @@ function ActionsView({allActions,onToggleCheck,onGoToCase}){
     <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
       {["all","critical","urgent"].map(f=><FilterBtn key={f} active={filter===f} onClick={()=>setFilter(f)} label={f.charAt(0).toUpperCase()+f.slice(1)} color={f==="critical"?"#f85149":f==="urgent"?"#d4a017":"#4a6fa5"} />)}
       <div style={{width:1,background:"#161b22",margin:"0 4px"}}/>
-      {STAGES.map(s=>{const cnt=allActions.filter(a=>a.stage===s.n).length;if(!cnt)return null;return <FilterBtn key={s.n} active={sf===s.n} onClick={()=>setSf(sf===s.n?null:s.n)} label={`${s.label} (${cnt})`} color={STAGE_COLORS[s.n]} />;})}
+      {STAGES.map(s=>{const cnt=allActions.filter(a=>a.stage===s.n).length;if(!cnt)return null;return<FilterBtn key={s.n} active={sf===s.n} onClick={()=>setSf(sf===s.n?null:s.n)} label={`${s.label} (${cnt})`} color={STAGE_COLORS[s.n]} />;})}
     </div>
     {Object.keys(byStage).sort().map(stage=>(
       <div key={stage} style={{marginBottom:20}}>
@@ -513,15 +447,15 @@ function ActionsView({allActions,onToggleCheck,onGoToCase}){
         <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,overflow:"hidden"}}>
           {byStage[stage].map((action,i)=>(
             <div key={`${action.caseId}-${action.checkId}`} style={{display:"flex",alignItems:"center",gap:14,padding:"13px 18px",borderBottom:i<byStage[stage].length-1?"1px solid #161b22":"none"}}>
-              <div onClick={()=>onToggleCheck(action.caseId,action.checkId)} style={{width:20,height:20,borderRadius:4,border:"2px solid #30363d",background:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}/>
+              <div onClick={()=>onToggleCheck(action.caseId,action.checkId)} style={{width:20,height:20,borderRadius:4,border:"2px solid #30363d",flexShrink:0,cursor:"pointer"}}/>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,color:"#e6edf3"}}>{action.label}</div>
-                <div style={{fontSize:11,color:"#6e7681",marginTop:2}}><span style={{color:"#58a6ff",fontFamily:"monospace"}}>{action.caseId}</span> — {action.caseName} — {action.ifa} — {action.fund}</div>
+                <div style={{fontSize:11,color:"#6e7681",marginTop:2}}><span style={{color:"#58a6ff",fontFamily:"monospace"}}>{action.caseId}</span> — {action.caseName} — {action.ifa}</div>
               </div>
               <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
                 {action.critical&&<span style={{fontSize:9,background:"#f8514922",border:"1px solid #f85149",color:"#f85149",borderRadius:3,padding:"1px 5px"}}>CRITICAL</span>}
                 {action.urgent&&<span style={{fontSize:9,background:"#d4a01722",border:"1px solid #d4a017",color:"#d4a017",borderRadius:3,padding:"1px 5px"}}>URGENT</span>}
-                <button onClick={()=>onGoToCase(action.caseId)} style={{background:"transparent",border:"1px solid #30363d",color:"#6e7681",borderRadius:5,padding:"3px 10px",fontSize:11,cursor:"pointer"}}>Open →</button>
+                <button onClick={()=>onGoToCase(action.caseId)} style={{background:"transparent",border:"1px solid #30363d",color:"#6e7681",borderRadius:5,padding:"3px 10px",fontSize:11,cursor:"pointer"}}>Open</button>
               </div>
             </div>
           ))}
@@ -532,24 +466,14 @@ function ActionsView({allActions,onToggleCheck,onGoToCase}){
   </div>);
 }
 
-// ─── IFA LIST ─────────────────────────────────────────────────────────────────
 function IFAList({ifas,cases,onSelect}){
   const [filter,setFilter]=useState("all");
-  const displayed=ifas.filter(i=>filter==="all"?true:i.status.toLowerCase()===filter);
-  const totalPremium=ifas.reduce((s,i)=>s+(parseInt(i.totalPremium.replace(/[^0-9]/g,""))||0),0);
-  const totalComm=ifas.reduce((s,i)=>s+(parseInt(i.commissionPaid.replace(/[^0-9]/g,""))||0),0);
-  const statuses=["all","Active","Onboarding","Suspended"];
+  const displayed=ifas.filter(i=>filter==="all"?true:i.status===filter);
   const statusColor={Active:"#3fb950",Onboarding:"#388bfd",Suspended:"#f85149"};
-
-  const reviewOverdue=(ifa)=>{
-    if(!ifa.reviewDueDate||ifa.status!=="Active") return false;
-    const [d,m,y]=ifa.reviewDueDate.split("/");
-    return new Date(`${y}-${m}-${d}`)<new Date();
-  };
-
+  const reviewOverdue=ifa=>{if(!ifa.reviewDueDate||ifa.status!=="Active")return false;const[d,m,y]=ifa.reviewDueDate.split("/");return new Date(`${y}-${m}-${d}`)<new Date();};
   return(<div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:24}}>
-      {[{label:"Total IFA Partners",value:ifas.length,color:"#4a6fa5"},{label:"Total Premium Placed",value:"£"+totalPremium.toLocaleString(),color:"#d4a017"},{label:"Commission Paid",value:"£"+totalComm.toLocaleString(),color:"#3fb950"},{label:"Reviews Overdue",value:ifas.filter(reviewOverdue).length,color:"#f85149"}].map(s=>(
+      {[{label:"Total Partners",value:ifas.length,color:"#4a6fa5"},{label:"Premium Placed",value:"£"+ifas.reduce((s,i)=>s+(parseInt(i.totalPremium.replace(/[^0-9]/g,""))||0),0).toLocaleString(),color:"#d4a017"},{label:"Commission Paid",value:"£"+ifas.reduce((s,i)=>s+(parseInt(i.commissionPaid.replace(/[^0-9]/g,""))||0),0).toLocaleString(),color:"#3fb950"},{label:"Reviews Overdue",value:ifas.filter(reviewOverdue).length,color:"#f85149"}].map(s=>(
         <div key={s.label} style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
           <div style={{fontSize:11,color:"#6e7681",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>{s.label}</div>
           <div style={{fontSize:22,fontWeight:700,color:s.color}}>{s.value}</div>
@@ -557,19 +481,15 @@ function IFAList({ifas,cases,onSelect}){
       ))}
     </div>
     <div style={{display:"flex",gap:8,marginBottom:16}}>
-      {statuses.map(f=><FilterBtn key={f} active={filter===f} onClick={()=>setFilter(f)} label={f==="all"?`All (${ifas.length})`:f+` (${ifas.filter(i=>i.status===f).length})`} color={f==="all"?"#4a6fa5":statusColor[f]||"#4a6fa5"} />)}
+      {["all","Active","Onboarding","Suspended"].map(f=><FilterBtn key={f} active={filter===f} onClick={()=>setFilter(f)} label={f==="all"?`All (${ifas.length})`:f+` (${ifas.filter(i=>i.status===f).length})`} color={f==="all"?"#4a6fa5":statusColor[f]||"#4a6fa5"} />)}
     </div>
     <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,overflow:"hidden"}}>
       <table style={{width:"100%",borderCollapse:"collapse"}}>
-        <thead><tr style={{borderBottom:"1px solid #161b22"}}>
-          {["Firm","Type","FCA No.","Status","Cases","Completed","Incomplete","Commission Rate","Total Paid","Review Due","RM",""].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:"#4a6fa5",fontWeight:600,whiteSpace:"nowrap"}}>{h}</th>)}
-        </tr></thead>
+        <thead><tr style={{borderBottom:"1px solid #161b22"}}>{["Firm","Status","Cases","Completed","Incomplete","Rate","Commission","Review Due","RM",""].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:"#4a6fa5",fontWeight:600,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
         <tbody>{displayed.map((ifa,i)=>{
           const overdue=reviewOverdue(ifa);
           return(<tr key={ifa.id} onClick={()=>onSelect(ifa.id)} style={{borderBottom:"1px solid #0d1117",cursor:"pointer",background:i%2===0?"transparent":"#0b0f16"}} onMouseEnter={e=>e.currentTarget.style.background="#161b22"} onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"transparent":"#0b0f16"}>
-            <td style={{padding:"12px 12px"}}><div style={{fontSize:13,color:"#e6edf3",fontWeight:600}}>{ifa.firm}</div></td>
-            <td style={{padding:"12px 12px",fontSize:11,color:"#6e7681"}}>{ifa.type}</td>
-            <td style={{padding:"12px 12px",fontSize:11,color:"#8b949e",fontFamily:"monospace"}}>{ifa.fcaNumber}</td>
+            <td style={{padding:"12px 12px"}}><div style={{fontSize:13,color:"#e6edf3",fontWeight:600}}>{ifa.firm}</div><div style={{fontSize:10,color:"#6e7681"}}>{ifa.type}</div></td>
             <td style={{padding:"12px 12px"}}><span style={{fontSize:10,background:(statusColor[ifa.status]||"#374151")+"22",border:`1px solid ${(statusColor[ifa.status]||"#374151")}66`,color:statusColor[ifa.status]||"#374151",borderRadius:4,padding:"2px 7px"}}>{ifa.status}</span></td>
             <td style={{padding:"12px 12px",fontSize:13,color:"#e6edf3",textAlign:"center"}}>{ifa.totalCasesSubmitted}</td>
             <td style={{padding:"12px 12px",fontSize:12,color:"#3fb950",textAlign:"center"}}>{ifa.casesCompleted}</td>
@@ -586,288 +506,664 @@ function IFAList({ifas,cases,onSelect}){
   </div>);
 }
 
-// ─── IFA DETAIL ───────────────────────────────────────────────────────────────
-function IFADetail({ifa,cases,onToggleCheck,showToast}){
+function IFADetail({ifa,cases,onToggleCheck}){
   const [tab,setTab]=useState("overview");
-  const obChecks=ONBOARDING_STAGES;
-  const obDone=obChecks.filter(c=>ifa.onboardingChecks[c.id]).length;
-  const obPct=Math.round((obDone/obChecks.length)*100);
+  const obChecks=ONBOARDING_STAGES,obDone=obChecks.filter(c=>ifa.onboardingChecks[c.id]).length,obPct=Math.round((obDone/obChecks.length)*100);
   const statusColor={Active:"#3fb950",Onboarding:"#388bfd",Suspended:"#f85149"};
   const sc=statusColor[ifa.status]||"#374151";
-
   const reviewOverdue=ifa.reviewDueDate&&ifa.status==="Active"&&(()=>{const[d,m,y]=ifa.reviewDueDate.split("/");return new Date(`${y}-${m}-${d}`)<new Date();})();
-
   return(<div>
-    <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
-    <div style={{animation:"fadeUp 0.2s ease"}}>
-
-      {/* Header cards */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:14,marginBottom:20}}>
-        {[{l:"Status",v:ifa.status,c:sc},{l:"Cases Submitted",v:ifa.totalCasesSubmitted,c:"#e6edf3"},{l:"Completed",v:ifa.casesCompleted,c:"#3fb950"},{l:"Incomplete",v:ifa.casesIncomplete,c:ifa.casesIncomplete>0?"#f85149":"#6e7681"},{l:"Commission Paid",v:ifa.commissionPaid,c:"#d4a017"}].map(item=>(
-          <div key={item.l} style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:8,padding:"14px 16px"}}>
-            <div style={{fontSize:10,letterSpacing:"0.15em",color:"#4a6fa5",textTransform:"uppercase",marginBottom:4}}>{item.l}</div>
-            <div style={{fontSize:18,color:item.c,fontWeight:700}}>{item.v}</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:14,marginBottom:20}}>
+      {[{l:"Status",v:ifa.status,c:sc},{l:"Cases Submitted",v:ifa.totalCasesSubmitted,c:"#e6edf3"},{l:"Completed",v:ifa.casesCompleted,c:"#3fb950"},{l:"Incomplete",v:ifa.casesIncomplete,c:ifa.casesIncomplete>0?"#f85149":"#6e7681"},{l:"Commission Paid",v:ifa.commissionPaid,c:"#d4a017"}].map(item=>(
+        <div key={item.l} style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:8,padding:"14px 16px"}}>
+          <div style={{fontSize:10,letterSpacing:"0.15em",color:"#4a6fa5",textTransform:"uppercase",marginBottom:4}}>{item.l}</div>
+          <div style={{fontSize:18,color:item.c,fontWeight:700}}>{item.v}</div>
+        </div>
+      ))}
+    </div>
+    {reviewOverdue&&<div style={{background:"#2a1a00",border:"1px solid #d4a017",borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:12,color:"#d4a017"}}>Annual review overdue — due {ifa.reviewDueDate}. KYC/AML refresh required.</div>}
+    {ifa.status==="Suspended"&&<div style={{background:"#2a0000",border:"1px solid #f85149",borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:12,color:"#f85149"}}>IFA SUSPENDED — Do not accept new cases. Compliance investigation in progress.</div>}
+    <div style={{display:"flex",gap:6,marginBottom:18,borderBottom:"1px solid #161b22"}}>
+      {["overview","onboarding","kyc-aml","cases","commission"].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:"8px 16px",background:"transparent",border:"none",cursor:"pointer",fontSize:12,fontWeight:600,color:tab===t?"#e6edf3":"#6e7681",borderBottom:tab===t?"2px solid #d4a017":"2px solid transparent",marginBottom:-1,whiteSpace:"nowrap"}}>{t==="kyc-aml"?"KYC / AML":t==="onboarding"?`Onboarding (${obDone}/${obChecks.length})`:t.charAt(0).toUpperCase()+t.slice(1)}</button>)}
+    </div>
+    {tab==="overview"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+      <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
+        <div style={{fontSize:11,letterSpacing:"0.15em",color:"#4a6fa5",textTransform:"uppercase",marginBottom:10}}>Firm Details</div>
+        {[{k:"Firm",v:ifa.firm},{k:"Type",v:ifa.type},{k:"FCA Number",v:ifa.fcaNumber},{k:"Unipass ID",v:ifa.unipaussId||"Not yet assigned"},{k:"Address",v:ifa.address},{k:"Contact",v:ifa.contact},{k:"Rel. Manager",v:ifa.relationshipManager},{k:"Last Contact",v:ifa.lastContact}].map(d=>(
+          <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #161b22",gap:10}}>
+            <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:11,color:"#e6edf3",textAlign:"right"}}>{d.v}</span>
           </div>
         ))}
       </div>
-
-      {/* Alerts */}
-      {reviewOverdue&&<div style={{background:"#2a1a00",border:"1px solid #d4a017",borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:12,color:"#d4a017"}}>⚠ Annual review overdue — due {ifa.reviewDueDate}. KYC/AML refresh required. Escalated to Compliance.</div>}
-      {ifa.status==="Suspended"&&<div style={{background:"#2a0000",border:"1px solid #f85149",borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:12,color:"#f85149"}}>🚫 IFA SUSPENDED — Do not accept new cases. Compliance investigation in progress.</div>}
-
-      {/* Tabs */}
-      <div style={{display:"flex",gap:6,marginBottom:18,borderBottom:"1px solid #161b22"}}>
-        {["overview","onboarding","kyc-aml","cases","commission"].map(t=>(
-          <button key={t} onClick={()=>setTab(t)} style={{padding:"8px 16px",background:"transparent",border:"none",cursor:"pointer",fontSize:12,fontWeight:600,color:tab===t?"#e6edf3":"#6e7681",borderBottom:tab===t?"2px solid #d4a017":"2px solid transparent",marginBottom:-1,textTransform:"capitalize",whiteSpace:"nowrap"}}>
-            {t==="kyc-aml"?"KYC / AML":t==="onboarding"?`Onboarding (${obDone}/${obChecks.length})`:t.charAt(0).toUpperCase()+t.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* OVERVIEW */}
-      {tab==="overview"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
-            <div style={{fontSize:11,letterSpacing:"0.15em",color:"#4a6fa5",textTransform:"uppercase",marginBottom:10}}>Firm Details</div>
-            {[{k:"Firm",v:ifa.firm},{k:"Type",v:ifa.type},{k:"FCA Number",v:ifa.fcaNumber},{k:"Unipass ID",v:ifa.unipaussId||"Not yet assigned"},{k:"Address",v:ifa.address},{k:"Contact",v:ifa.contact},{k:"Relationship Manager",v:ifa.relationshipManager},{k:"Last Contact",v:ifa.lastContact},{k:"Preferred Contact",v:ifa.preferredContact}].map(d=>(
-              <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #161b22",gap:10}}>
-                <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:11,color:"#e6edf3",textAlign:"right"}}>{d.v}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
-            <div style={{fontSize:11,letterSpacing:"0.15em",color:"#d4a017",textTransform:"uppercase",marginBottom:10}}>Commission Structure</div>
-            {[{k:"Commission Type",v:ifa.commissionType},{k:"Initial Rate",v:ifa.initialCommission+"%"},{k:"Trail Commission",v:ifa.trailCommission+"%"},{k:"Payment Terms",v:ifa.paymentTerms},{k:"Total Premium Placed",v:ifa.totalPremium},{k:"Total Commission Paid",v:ifa.commissionPaid}].map(d=>(
-              <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #161b22",gap:10}}>
-                <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:11,color:"#e6edf3",textAlign:"right"}}>{d.v}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
-            <div style={{fontSize:11,letterSpacing:"0.15em",color:"#8b949e",textTransform:"uppercase",marginBottom:8}}>Notes</div>
-            <div style={{fontSize:12,color:"#94a3b8",lineHeight:1.6}}>{ifa.notes}</div>
-          </div>
-          <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
-            <div style={{fontSize:11,letterSpacing:"0.15em",color:"#8b949e",textTransform:"uppercase",marginBottom:10}}>Submission Quality</div>
-            {[{label:"Total Submitted",value:ifa.totalCasesSubmitted,color:"#e6edf3"},{label:"Completed Successfully",value:ifa.casesCompleted,color:"#3fb950"},{label:"Currently Pending",value:ifa.casesPending,color:"#388bfd"},{label:"Incomplete / Returned",value:ifa.casesIncomplete,color:ifa.casesIncomplete>0?"#f85149":"#6e7681"}].map(item=>(
-              <div key={item.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #161b22"}}>
-                <span style={{fontSize:12,color:"#8b949e"}}>{item.label}</span>
-                <span style={{fontSize:14,color:item.color,fontWeight:700}}>{item.value}</span>
-              </div>
-            ))}
-            {ifa.totalCasesSubmitted>0&&<div style={{marginTop:10}}>
-              <div style={{fontSize:10,color:"#6e7681",marginBottom:4}}>Completion rate</div>
-              <div style={{background:"#161b22",borderRadius:4,height:6}}><div style={{width:`${Math.round((ifa.casesCompleted/ifa.totalCasesSubmitted)*100)}%`,height:6,background:"#3fb950",borderRadius:4}}/></div>
-              <div style={{fontSize:10,color:"#3fb950",marginTop:3}}>{Math.round((ifa.casesCompleted/ifa.totalCasesSubmitted)*100)}%</div>
-            </div>}
-          </div>
-        </div>
-      </div>}
-
-      {/* ONBOARDING CHECKLIST */}
-      {tab==="onboarding"&&<div>
-        <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 20px",marginBottom:16}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-            <div style={{fontSize:13,color:"#e6edf3",fontWeight:600}}>Vendor Onboarding Progress</div>
-            <div style={{fontSize:12,color:obPct===100?"#3fb950":"#d4a017"}}>{obDone}/{obChecks.length} stages complete</div>
-          </div>
-          <div style={{background:"#161b22",borderRadius:4,height:6,marginBottom:6}}><div style={{width:`${obPct}%`,height:6,background:obPct===100?"#3fb950":"#388bfd",borderRadius:4,transition:"width 0.4s"}}/></div>
-          <div style={{fontSize:11,color:"#6e7681"}}>{obPct}% complete{obPct===100?" — fully onboarded":""}</div>
-        </div>
-        <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,overflow:"hidden"}}>
-          {obChecks.map((ch,i)=>{const checked=ifa.onboardingChecks[ch.id]||false;return(
-            <div key={ch.id} onClick={()=>onToggleCheck(ch.id)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",borderBottom:i<obChecks.length-1?"1px solid #161b22":"none",cursor:"pointer",background:checked?"#0d1f0d":"transparent",transition:"background 0.15s"}} onMouseEnter={e=>!checked&&(e.currentTarget.style.background="#161b22")} onMouseLeave={e=>!checked&&(e.currentTarget.style.background="transparent")}>
-              <div style={{width:22,height:22,borderRadius:5,border:`2px solid ${checked?"#3fb950":"#30363d"}`,background:checked?"#3fb950":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>{checked&&<span style={{color:"#0d1117",fontSize:13,fontWeight:900}}>✓</span>}</div>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,color:checked?"#6e7681":"#e6edf3",textDecoration:checked?"line-through":"none"}}>{ch.label}</div>
-              </div>
-              <div style={{fontSize:11,color:checked?"#3fb950":"#484f58"}}>{checked?"Complete":"Pending"}</div>
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
+          <div style={{fontSize:11,letterSpacing:"0.15em",color:"#d4a017",textTransform:"uppercase",marginBottom:10}}>Submission Quality</div>
+          {[{label:"Total Submitted",value:ifa.totalCasesSubmitted,color:"#e6edf3"},{label:"Completed",value:ifa.casesCompleted,color:"#3fb950"},{label:"Pending",value:ifa.casesPending,color:"#388bfd"},{label:"Incomplete / Returned",value:ifa.casesIncomplete,color:ifa.casesIncomplete>0?"#f85149":"#6e7681"}].map(item=>(
+            <div key={item.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #161b22"}}>
+              <span style={{fontSize:12,color:"#8b949e"}}>{item.label}</span><span style={{fontSize:14,color:item.color,fontWeight:700}}>{item.value}</span>
             </div>
-          );})}
+          ))}
+          {ifa.totalCasesSubmitted>0&&<div style={{marginTop:10}}>
+            <div style={{background:"#161b22",borderRadius:4,height:6}}><div style={{width:`${Math.round((ifa.casesCompleted/ifa.totalCasesSubmitted)*100)}%`,height:6,background:"#3fb950",borderRadius:4}}/></div>
+            <div style={{fontSize:10,color:"#3fb950",marginTop:3}}>{Math.round((ifa.casesCompleted/ifa.totalCasesSubmitted)*100)}% completion rate</div>
+          </div>}
         </div>
-      </div>}
-
-      {/* KYC / AML */}
-      {tab==="kyc-aml"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <div style={{background:"#0a0e15",border:`1px solid ${ifa.sanctions.screened?"#3fb95033":"#f8514933"}`,borderRadius:10,padding:"16px 18px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <div style={{fontSize:11,letterSpacing:"0.15em",color:"#4a6fa5",textTransform:"uppercase"}}>Sanctions Screening</div>
-              <span style={{fontSize:10,background:ifa.sanctions.screened?"#3fb95022":"#f8514922",border:`1px solid ${ifa.sanctions.screened?"#3fb950":"#f85149"}`,color:ifa.sanctions.screened?"#3fb950":"#f85149",borderRadius:4,padding:"2px 7px"}}>{ifa.sanctions.screened?"Screened":"Pending"}</span>
-            </div>
-            {[{k:"Result",v:ifa.sanctions.result},{k:"Screening Provider",v:ifa.sanctions.provider},{k:"Date Screened",v:ifa.sanctions.screenedDate||"Not yet"},{k:"Next Review",v:ifa.sanctions.nextReview||"TBC"}].map(d=>(
-              <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #161b22",gap:10}}>
-                <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:11,color:d.v?.includes("REVIEW")||d.v?.includes("progress")?"#f85149":"#e6edf3",textAlign:"right"}}>{d.v}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{background:"#0a0e15",border:`1px solid ${ifa.pep.checked?"#3fb95033":"#f8514933"}`,borderRadius:10,padding:"16px 18px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <div style={{fontSize:11,letterSpacing:"0.15em",color:"#4a6fa5",textTransform:"uppercase"}}>PEP / RCA Check</div>
-              <span style={{fontSize:10,background:ifa.pep.checked?"#3fb95022":"#f8514922",border:`1px solid ${ifa.pep.checked?"#3fb950":"#f85149"}`,color:ifa.pep.checked?"#3fb950":"#f85149",borderRadius:4,padding:"2px 7px"}}>{ifa.pep.checked?"Completed":"Pending"}</span>
-            </div>
-            {[{k:"Result",v:ifa.pep.result},{k:"Date Checked",v:ifa.pep.checkedDate||"Not yet"}].map(d=>(
-              <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #161b22",gap:10}}>
-                <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:11,color:"#e6edf3",textAlign:"right"}}>{d.v}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <div style={{background:"#0a0e15",border:`1px solid ${ifa.aml.verified?"#3fb95033":"#f8514933"}`,borderRadius:10,padding:"16px 18px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <div style={{fontSize:11,letterSpacing:"0.15em",color:"#4a6fa5",textTransform:"uppercase"}}>AML Verification</div>
-              <span style={{fontSize:10,background:ifa.aml.verified?"#3fb95022":"#f8514922",border:`1px solid ${ifa.aml.verified?"#3fb950":"#f85149"}`,color:ifa.aml.verified?"#3fb950":"#f85149",borderRadius:4,padding:"2px 7px"}}>{ifa.aml.verified?"Verified":"Pending"}</span>
-            </div>
-            {[{k:"Verification Method",v:ifa.aml.method},{k:"Date Verified",v:ifa.aml.verifiedDate||"Not yet"},{k:"Next Review",v:ifa.aml.nextReview||"TBC"}].map(d=>(
-              <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #161b22",gap:10}}>
-                <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:11,color:"#e6edf3",textAlign:"right"}}>{d.v}</span>
-              </div>
-            ))}
-            <div style={{marginTop:12}}>
-              <div style={{fontSize:10,color:"#6e7681",marginBottom:6}}>Documents Obtained</div>
-              {ifa.aml.documents.map(doc=><div key={doc} style={{fontSize:11,color:"#8b949e",padding:"3px 0",borderBottom:"1px solid #161b22"}}>⬡ {doc}</div>)}
-            </div>
-          </div>
-          <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
-            <div style={{fontSize:11,letterSpacing:"0.15em",color:"#8b949e",textTransform:"uppercase",marginBottom:10}}>FCA Register Check</div>
-            {[{k:"FCA Number",v:ifa.fcaNumber},{k:"Verified",v:ifa.onboardingChecks.fca_check?"Yes — FCA Register confirmed":"Not yet verified"},{k:"Agency Agreement",v:ifa.onboardingChecks.agency_agreement?"Signed":"Not yet signed"}].map(d=>(
-              <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #161b22",gap:10}}>
-                <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:11,color:d.v?.includes("Not")?"#f85149":"#e6edf3",textAlign:"right"}}>{d.v}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>}
-
-      {/* CASES */}
-      {tab==="cases"&&<div>
-        {cases.length===0?<div style={{textAlign:"center",padding:"60px 0",color:"#484f58",fontSize:14}}><div style={{fontSize:36,marginBottom:12}}>⬜</div>No active cases for this IFA</div>
-        :<div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,overflow:"hidden"}}>
-          <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr style={{borderBottom:"1px solid #161b22"}}>{["Case ID","Policyholder","Fund","Stage","Status"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:"#4a6fa5",fontWeight:600}}>{h}</th>)}</tr></thead>
-            <tbody>{cases.map((c,i)=>(
-              <tr key={c.id} style={{borderBottom:"1px solid #0d1117",background:i%2===0?"transparent":"#0b0f16"}}>
-                <td style={{padding:"11px 14px",fontSize:11,color:"#58a6ff",fontFamily:"monospace"}}>{c.id}</td>
-                <td style={{padding:"11px 14px",fontSize:13,color:"#e6edf3"}}>{c.name}</td>
-                <td style={{padding:"11px 14px",fontSize:13,color:"#d4a017"}}>{c.fund}</td>
-                <td style={{padding:"11px 14px"}}><StageBadge stage={c.stage}/></td>
-                <td style={{padding:"11px 14px",fontSize:11,color:"#8b949e"}}>{STAGE_LABELS[c.stage]}</td>
-              </tr>
-            ))}</tbody>
-          </table>
+        {ifa.notes&&<div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
+          <div style={{fontSize:11,color:"#8b949e",textTransform:"uppercase",marginBottom:8}}>Notes</div>
+          <div style={{fontSize:12,color:"#94a3b8",lineHeight:1.6}}>{ifa.notes}</div>
         </div>}
-      </div>}
-
-      {/* COMMISSION */}
-      {tab==="commission"&&<div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
-          <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
-            <div style={{fontSize:11,letterSpacing:"0.15em",color:"#d4a017",textTransform:"uppercase",marginBottom:10}}>Commission Terms</div>
-            {[{k:"Commission Type",v:ifa.commissionType},{k:"Initial Rate",v:ifa.initialCommission+"%"},{k:"Trail Rate",v:ifa.trailCommission+"%"},{k:"Payment Terms",v:ifa.paymentTerms},{k:"Total Premium Placed",v:ifa.totalPremium},{k:"Total Commission Paid",v:ifa.commissionPaid}].map(d=>(
-              <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #161b22",gap:10}}>
-                <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:12,color:"#e6edf3",fontWeight:600,textAlign:"right"}}>{d.v}</span>
-              </div>
-            ))}
+      </div>
+    </div>}
+    {tab==="onboarding"&&<div>
+      <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 20px",marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{fontSize:13,color:"#e6edf3",fontWeight:600}}>Vendor Onboarding Progress</div>
+          <div style={{fontSize:12,color:obPct===100?"#3fb950":"#d4a017"}}>{obDone}/{obChecks.length} complete</div>
+        </div>
+        <div style={{background:"#161b22",borderRadius:4,height:6,marginBottom:6}}><div style={{width:`${obPct}%`,height:6,background:obPct===100?"#3fb950":"#388bfd",borderRadius:4}}/></div>
+        <div style={{fontSize:11,color:"#6e7681"}}>{obPct}%{obPct===100?" — fully onboarded":""}</div>
+      </div>
+      <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,overflow:"hidden"}}>
+        {obChecks.map((ch,i)=>{const checked=ifa.onboardingChecks[ch.id]||false;return(
+          <div key={ch.id} onClick={()=>onToggleCheck(ch.id)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",borderBottom:i<obChecks.length-1?"1px solid #161b22":"none",cursor:"pointer",background:checked?"#0d1f0d":"transparent"}} onMouseEnter={e=>!checked&&(e.currentTarget.style.background="#161b22")} onMouseLeave={e=>!checked&&(e.currentTarget.style.background="transparent")}>
+            <div style={{width:22,height:22,borderRadius:5,border:`2px solid ${checked?"#3fb950":"#30363d"}`,background:checked?"#3fb950":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{checked&&<span style={{color:"#0d1117",fontSize:13,fontWeight:900}}>✓</span>}</div>
+            <div style={{flex:1}}><div style={{fontSize:13,color:checked?"#6e7681":"#e6edf3",textDecoration:checked?"line-through":"none"}}>{ch.label}</div></div>
+            <div style={{fontSize:11,color:checked?"#3fb950":"#484f58"}}>{checked?"Complete":"Pending"}</div>
           </div>
-          <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
-            <div style={{fontSize:11,letterSpacing:"0.15em",color:"#d4a017",textTransform:"uppercase",marginBottom:10}}>Recent Payments</div>
-            {ifa.commissionHistory.length===0?<div style={{fontSize:12,color:"#484f58",textAlign:"center",padding:"20px 0"}}>No payments yet</div>
-            :ifa.commissionHistory.map((p,i)=>(
-              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #161b22"}}>
-                <div><div style={{fontSize:12,color:"#e6edf3",fontWeight:600}}>{p.amount}</div><div style={{fontSize:10,color:"#6e7681",marginTop:1}}>{p.cases} case{p.cases!==1?"s":""} · {p.date}</div></div>
-                <span style={{fontSize:9,background:"#3fb95022",border:"1px solid #3fb95066",color:"#3fb950",borderRadius:3,padding:"2px 6px"}}>Paid</span>
-              </div>
-            ))}
+        );})}
+      </div>
+    </div>}
+    {tab==="kyc-aml"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{background:"#0a0e15",border:`1px solid ${ifa.sanctions.screened?"#3fb95033":"#f8514933"}`,borderRadius:10,padding:"16px 18px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:11,letterSpacing:"0.15em",color:"#4a6fa5",textTransform:"uppercase"}}>Sanctions Screening</div>
+            <span style={{fontSize:10,background:ifa.sanctions.screened?"#3fb95022":"#f8514922",border:`1px solid ${ifa.sanctions.screened?"#3fb950":"#f85149"}`,color:ifa.sanctions.screened?"#3fb950":"#f85149",borderRadius:4,padding:"2px 7px"}}>{ifa.sanctions.screened?"Screened":"Pending"}</span>
+          </div>
+          {[{k:"Result",v:ifa.sanctions.result},{k:"Provider",v:ifa.sanctions.provider},{k:"Date",v:ifa.sanctions.screenedDate||"Not yet"},{k:"Next Review",v:ifa.sanctions.nextReview||"TBC"}].map(d=>(
+            <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #161b22",gap:10}}>
+              <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:11,color:d.v?.includes("REVIEW")||d.v?.includes("progress")?"#f85149":"#e6edf3",textAlign:"right"}}>{d.v}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{background:"#0a0e15",border:`1px solid ${ifa.pep.checked?"#3fb95033":"#f8514933"}`,borderRadius:10,padding:"16px 18px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:11,letterSpacing:"0.15em",color:"#4a6fa5",textTransform:"uppercase"}}>PEP / RCA Check</div>
+            <span style={{fontSize:10,background:ifa.pep.checked?"#3fb95022":"#f8514922",border:`1px solid ${ifa.pep.checked?"#3fb950":"#f85149"}`,color:ifa.pep.checked?"#3fb950":"#f85149",borderRadius:4,padding:"2px 7px"}}>{ifa.pep.checked?"Complete":"Pending"}</span>
+          </div>
+          {[{k:"Result",v:ifa.pep.result},{k:"Date",v:ifa.pep.checkedDate||"Not yet"}].map(d=>(
+            <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #161b22",gap:10}}>
+              <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:11,color:"#e6edf3",textAlign:"right"}}>{d.v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{background:"#0a0e15",border:`1px solid ${ifa.aml.verified?"#3fb95033":"#f8514933"}`,borderRadius:10,padding:"16px 18px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:11,letterSpacing:"0.15em",color:"#4a6fa5",textTransform:"uppercase"}}>AML Verification</div>
+            <span style={{fontSize:10,background:ifa.aml.verified?"#3fb95022":"#f8514922",border:`1px solid ${ifa.aml.verified?"#3fb950":"#f85149"}`,color:ifa.aml.verified?"#3fb950":"#f85149",borderRadius:4,padding:"2px 7px"}}>{ifa.aml.verified?"Verified":"Pending"}</span>
+          </div>
+          {[{k:"Method",v:ifa.aml.method},{k:"Date",v:ifa.aml.verifiedDate||"Not yet"},{k:"Next Review",v:ifa.aml.nextReview||"TBC"}].map(d=>(
+            <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #161b22",gap:10}}>
+              <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:11,color:"#e6edf3",textAlign:"right"}}>{d.v}</span>
+            </div>
+          ))}
+          <div style={{marginTop:12}}>
+            <div style={{fontSize:10,color:"#6e7681",marginBottom:6}}>Documents Obtained</div>
+            {ifa.aml.documents.map(doc=><div key={doc} style={{fontSize:11,color:"#8b949e",padding:"3px 0",borderBottom:"1px solid #161b22"}}>— {doc}</div>)}
           </div>
         </div>
         <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
-          <div style={{fontSize:11,letterSpacing:"0.15em",color:"#8b949e",textTransform:"uppercase",marginBottom:10}}>FCA Disclosure Requirements</div>
-          {["Commission amount disclosed on all policy schedules","Remuneration basis confirmed with policyholder","IDD (Insurance Distribution Directive) disclosure complete","Any referral arrangements documented and disclosed"].map(r=>(
-            <div key={r} style={{fontSize:12,color:"#8b949e",padding:"5px 0",borderBottom:"1px solid #161b22",paddingLeft:8,borderLeft:"2px solid #d4a01744"}}>{r}</div>
+          <div style={{fontSize:11,letterSpacing:"0.15em",color:"#8b949e",textTransform:"uppercase",marginBottom:10}}>FCA Register</div>
+          {[{k:"FCA Number",v:ifa.fcaNumber},{k:"Verified",v:ifa.onboardingChecks.fca_check?"Confirmed":"Not yet"},{k:"Agency Agreement",v:ifa.onboardingChecks.agency_agreement?"Signed":"Not signed"}].map(d=>(
+            <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #161b22",gap:10}}>
+              <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:11,color:d.v?.includes("Not")?"#f85149":"#e6edf3",textAlign:"right"}}>{d.v}</span>
+            </div>
           ))}
         </div>
-      </div>}
-    </div>
+      </div>
+    </div>}
+    {tab==="cases"&&(cases.length===0?<div style={{textAlign:"center",padding:"60px 0",color:"#484f58",fontSize:14}}>No active cases for this IFA</div>
+    :<div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,overflow:"hidden"}}>
+      <table style={{width:"100%",borderCollapse:"collapse"}}>
+        <thead><tr style={{borderBottom:"1px solid #161b22"}}>{["Case ID","Policyholder","Fund","Stage"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:"#4a6fa5",fontWeight:600}}>{h}</th>)}</tr></thead>
+        <tbody>{cases.map((c,i)=>(
+          <tr key={c.id} style={{borderBottom:"1px solid #0d1117",background:i%2===0?"transparent":"#0b0f16"}}>
+            <td style={{padding:"11px 14px",fontSize:11,color:"#58a6ff",fontFamily:"monospace"}}>{c.id}</td>
+            <td style={{padding:"11px 14px",fontSize:13,color:"#e6edf3"}}>{c.name}</td>
+            <td style={{padding:"11px 14px",fontSize:13,color:"#d4a017"}}>{c.fund}</td>
+            <td style={{padding:"11px 14px"}}><StageBadge stage={c.stage}/></td>
+          </tr>
+        ))}</tbody>
+      </table>
+    </div>)}
+    {tab==="commission"&&<div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+        <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
+          <div style={{fontSize:11,letterSpacing:"0.15em",color:"#d4a017",textTransform:"uppercase",marginBottom:10}}>Commission Terms</div>
+          {[{k:"Type",v:ifa.commissionType},{k:"Initial Rate",v:ifa.initialCommission+"%"},{k:"Trail Rate",v:ifa.trailCommission+"%"},{k:"Payment Terms",v:ifa.paymentTerms},{k:"Total Premium",v:ifa.totalPremium},{k:"Total Paid",v:ifa.commissionPaid}].map(d=>(
+            <div key={d.k} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #161b22",gap:10}}>
+              <span style={{fontSize:11,color:"#6e7681",flexShrink:0}}>{d.k}</span><span style={{fontSize:12,color:"#e6edf3",fontWeight:600,textAlign:"right"}}>{d.v}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
+          <div style={{fontSize:11,letterSpacing:"0.15em",color:"#d4a017",textTransform:"uppercase",marginBottom:10}}>Recent Payments</div>
+          {ifa.commissionHistory.length===0?<div style={{fontSize:12,color:"#484f58",textAlign:"center",padding:"20px 0"}}>No payments yet</div>
+          :ifa.commissionHistory.map((p,i)=>(
+            <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #161b22"}}>
+              <div><div style={{fontSize:12,color:"#e6edf3",fontWeight:600}}>{p.amount}</div><div style={{fontSize:10,color:"#6e7681",marginTop:1}}>{p.cases} case{p.cases!==1?"s":""} — {p.date}</div></div>
+              <span style={{fontSize:9,background:"#3fb95022",border:"1px solid #3fb95066",color:"#3fb950",borderRadius:3,padding:"2px 6px"}}>Paid</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>}
   </div>);
 }
 
-// ─── WORKFLOW REFERENCE ───────────────────────────────────────────────────────
 function WorkflowRef(){
   const [active,setActive]=useState(null);
   const stages=[
-    {id:1,label:"Enquiry & Quote",color:"#388bfd",states:["New Enquiry","Quote Requested","Quote Generated","Sent to IFA"],data:["DOB, gender, smoker status","Fund value & pension type","Annuity type","IFA FCA & Unipass ID","Postcode"],integrations:["Unipass / Origo","Pricing engine"],rules:["Enhanced triage required","Joint life — collect partner details","Quote valid 5 days"]},
+    {id:1,label:"Enquiry & Quote",color:"#388bfd",states:["New Enquiry","Quote Requested","Quote Generated","Sent to IFA"],data:["DOB, gender, smoker status","Fund value & pension type","Annuity type","IFA FCA & Unipass ID"],integrations:["Unipass / Origo","Pricing engine"],rules:["Enhanced triage required","Joint life — collect partner details","Quote valid 5 days"]},
     {id:2,label:"Underwriting",color:"#b45309",states:["Awaiting Medical","GP Report Requested","Evidence Received","UW Decision","Chief UW Referral"],data:["ICD-10 conditions","Medications","GP practice","iGPR / Morgan Ash ref"],integrations:["iGPR API","Morgan Ash MARS","UW rules engine"],rules:["Refer: 2+ conditions","Art.9 GDPR isolation","SLA: 10 working days"]},
     {id:3,label:"Repricing",color:"#d4a017",states:["Triggered","Calculated","IFA Notified","IFA Accepted","Lapsed"],data:["Reason code","New rate","Validity window","IFA timestamp"],integrations:["Pricing engine","Mailock"],rules:["Validity: 5 days","Auto-lapse if no IFA response","FCA audit log required"]},
-    {id:4,label:"Reinsurer",color:"#0f766e",states:["Pack Prepared","Sent","Awaiting Decision","Accepted","Counter-offer"],data:["Medical bundle","Treaty ref","Sum reinsured"],integrations:["Reinsurer portal / SFTP"],rules:["Facultative: fund >£200k","30-day SLA","Counter-offer → Chief UW"]},
-    {id:5,label:"Fund Transfer",color:"#1d4ed8",states:["Requested","Awaiting","Partial","Full Receipt","Reconciled"],data:["Ceding provider","Expected & received","Origo ref"],integrations:["Origo Options","Bank reconciliation"],rules:["Tolerance ±£50","Partial: hold policy issue","30-day lapse warning"]},
+    {id:4,label:"Reinsurer",color:"#0f766e",states:["Pack Prepared","Sent","Awaiting Decision","Accepted","Counter-offer"],data:["Medical bundle","Treaty ref","Sum reinsured"],integrations:["Reinsurer portal / SFTP"],rules:["Facultative: fund over £200k","30-day SLA","Counter-offer — Chief UW"]},
+    {id:5,label:"Fund Transfer",color:"#1d4ed8",states:["Requested","Awaiting","Partial","Full Receipt","Reconciled"],data:["Ceding provider","Expected and received","Origo ref"],integrations:["Origo Options","Bank reconciliation"],rules:["Tolerance ±50","Partial: hold policy issue","30-day lapse warning"]},
     {id:6,label:"Policy Issue",color:"#166534",states:["Pre-issue Checks","Docs Generated","Sent to PH","Sent to IFA","Live"],data:["Policy number","Commencement","First payment","Cooling-off date"],integrations:["DocuSign","IFA back-office","Payment engine"],rules:["FCA: schedule + IPID + welcome letter","30-day cooling off","Consumer Duty confirmation"]},
-    {id:7,label:"In-Force",color:"#374151",states:["Live","Payment Query","Death Claim","Survivor Pension","Ceased"],data:["Payment status","Beneficiary details","Death notification"],integrations:["BACS","DWP Tell Us Once","Annual statements"],rules:["Joint life: survivor pension on death","Guarantee: pay to estate","Annual statement FCA required"]},
+    {id:7,label:"In-Force",color:"#374151",states:["Live","Payment Query","Death Claim","Survivor Pension","Ceased"],data:["Payment status","Beneficiary details","Death notification"],integrations:["BACS","DWP Tell Us Once","Annual statements"],rules:["Joint life: survivor pension on death","Annual statement FCA required"]},
   ];
   const s=stages.find(x=>x.id===active);
   return(<div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10,marginBottom:20}}>
-      {stages.map(st=>(
-        <div key={st.id} onClick={()=>setActive(active===st.id?null:st.id)} style={{background:active===st.id?"#161b22":"#0a0e15",border:`1px solid ${active===st.id?st.color:"#161b22"}`,borderRadius:8,padding:"14px 16px",cursor:"pointer"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-            <div style={{width:8,height:8,borderRadius:"50%",background:st.color}}/><span style={{fontSize:11,fontWeight:700,color:st.color}}>0{st.id}. {st.label}</span>
-          </div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
-            {st.states.slice(0,3).map(state=><span key={state} style={{fontSize:9,background:"#0d1117",color:"#6e7681",padding:"1px 5px",borderRadius:3,border:"1px solid #161b22"}}>{state}</span>)}
-            {st.states.length>3&&<span style={{fontSize:9,color:"#4a6fa5"}}>+{st.states.length-3}</span>}
-          </div>
-        </div>
-      ))}
+      {stages.map(st=>(<div key={st.id} onClick={()=>setActive(active===st.id?null:st.id)} style={{background:active===st.id?"#161b22":"#0a0e15",border:`1px solid ${active===st.id?st.color:"#161b22"}`,borderRadius:8,padding:"14px 16px",cursor:"pointer"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><div style={{width:8,height:8,borderRadius:"50%",background:st.color}}/><span style={{fontSize:11,fontWeight:700,color:st.color}}>0{st.id}. {st.label}</span></div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:3}}>{st.states.slice(0,3).map(state=><span key={state} style={{fontSize:9,background:"#0d1117",color:"#6e7681",padding:"1px 5px",borderRadius:3,border:"1px solid #161b22"}}>{state}</span>)}{st.states.length>3&&<span style={{fontSize:9,color:"#4a6fa5"}}>+{st.states.length-3}</span>}</div>
+      </div>))}
     </div>
     {s&&<div style={{background:"#0a0e15",border:`1px solid ${s.color}44`,borderRadius:10,padding:22}}>
       <div style={{fontSize:15,fontWeight:700,color:"#e6edf3",marginBottom:16,display:"flex",gap:10,alignItems:"center"}}><div style={{width:10,height:10,borderRadius:"50%",background:s.color}}/>{s.label}</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16}}>
         {[{title:"States",color:s.color,items:s.states},{title:"Data Required",color:"#d4a017",items:s.data},{title:"Integrations",color:"#3fb950",items:s.integrations},{title:"Rules",color:"#f85149",items:s.rules}].map(sec=>(
-          <div key={sec.title}>
-            <div style={{fontSize:10,letterSpacing:"0.15em",textTransform:"uppercase",color:sec.color,marginBottom:8,fontWeight:700}}>{sec.title}</div>
-            {sec.items.map(item=><div key={item} style={{fontSize:12,color:"#8b949e",padding:"4px 0",borderBottom:"1px solid #161b22"}}>{item}</div>)}
-          </div>
+          <div key={sec.title}><div style={{fontSize:10,letterSpacing:"0.15em",textTransform:"uppercase",color:sec.color,marginBottom:8,fontWeight:700}}>{sec.title}</div>{sec.items.map(item=><div key={item} style={{fontSize:12,color:"#8b949e",padding:"4px 0",borderBottom:"1px solid #161b22"}}>{item}</div>)}</div>
         ))}
       </div>
     </div>}
   </div>);
 }
 
-// ─── INTEGRATIONS ─────────────────────────────────────────────────────────────
 function IntegrationsView(){
-  const items=[{name:"iGPR",category:"Medical",status:"Pending Contract",effort:"2–4 weeks",desc:"GP report requests and structured medical evidence retrieval"},{name:"Morgan Ash MARS",category:"Medical / Vulnerability",status:"Pending Contract",effort:"3–5 weeks",desc:"Vulnerability assessments and complex medical data flows"},{name:"Unipass / Origo",category:"IFA Identity",status:"Accreditation Required",effort:"4–6 weeks",desc:"IFA authentication, authorisation and FCA number verification"},{name:"Origo Options",category:"Fund Transfer",status:"Accreditation Required",effort:"4–8 weeks",desc:"Pension transfer tracking across the UK provider network"},{name:"Munich Re",category:"Reinsurer",status:"Commercial Negotiation",effort:"1–3 months",desc:"Facultative and treaty submission for large and impaired cases"},{name:"RGA UK",category:"Reinsurer",status:"Commercial Negotiation",effort:"1–3 months",desc:"Secondary reinsurance partner — counter-offer and specialist cases"},{name:"DocuSign",category:"e-Signature",status:"Ready to Integrate",effort:"1–2 weeks",desc:"Policy document signing and IFA acceptance workflows"},{name:"Mailock",category:"Secure Messaging",status:"Ready to Integrate",effort:"1–2 weeks",desc:"FCA-compliant secure email for IFA and policyholder comms"},{name:"BACS / Faster Payments",category:"Payments",status:"Banking Partner Required",effort:"6–10 weeks",desc:"Monthly annuity payment runs — requires sponsor bank"},{name:"ComplyAdvantage",category:"Sanctions / AML",status:"Ready to Integrate",effort:"1–2 weeks",desc:"Real-time sanctions screening, PEP checks and AML monitoring for IFA onboarding"},{name:"LexisNexis",category:"KYC / AML",status:"Ready to Integrate",effort:"2–3 weeks",desc:"Enhanced due diligence and identity verification for IFA firms"},{name:"DWP Tell Us Once",category:"Death Notification",status:"Future Phase",effort:"3–6 months",desc:"Automated death notifications to trigger in-force claim workflows"}];
+  const items=[{name:"iGPR",category:"Medical",status:"Pending Contract",effort:"2–4 weeks",desc:"GP report requests and medical evidence retrieval"},{name:"Morgan Ash MARS",category:"Medical / Vulnerability",status:"Pending Contract",effort:"3–5 weeks",desc:"Vulnerability assessments and complex medical data flows"},{name:"Unipass / Origo",category:"IFA Identity",status:"Accreditation Required",effort:"4–6 weeks",desc:"IFA authentication, authorisation and FCA number verification"},{name:"Origo Options",category:"Fund Transfer",status:"Accreditation Required",effort:"4–8 weeks",desc:"Pension transfer tracking across the UK provider network"},{name:"Munich Re",category:"Reinsurer",status:"Commercial Negotiation",effort:"1–3 months",desc:"Facultative and treaty submission for large and impaired cases"},{name:"RGA UK",category:"Reinsurer",status:"Commercial Negotiation",effort:"1–3 months",desc:"Secondary reinsurance partner"},{name:"DocuSign",category:"e-Signature",status:"Ready to Integrate",effort:"1–2 weeks",desc:"Policy document signing and IFA acceptance workflows"},{name:"Mailock",category:"Secure Messaging",status:"Ready to Integrate",effort:"1–2 weeks",desc:"FCA-compliant secure email for IFA and policyholder comms"},{name:"ComplyAdvantage",category:"Sanctions / AML",status:"Ready to Integrate",effort:"1–2 weeks",desc:"Real-time sanctions screening, PEP checks and AML monitoring"},{name:"LexisNexis",category:"KYC / AML",status:"Ready to Integrate",effort:"2–3 weeks",desc:"Enhanced due diligence and identity verification for IFA firms"},{name:"BACS / Faster Payments",category:"Payments",status:"Banking Partner Required",effort:"6–10 weeks",desc:"Monthly annuity payment runs — requires sponsor bank"},{name:"DWP Tell Us Once",category:"Death Notification",status:"Future Phase",effort:"3–6 months",desc:"Automated death notifications to trigger in-force claim workflows"}];
   const sc={"Ready to Integrate":"#3fb950","Pending Contract":"#d4a017","Accreditation Required":"#388bfd","Commercial Negotiation":"#f85149","Banking Partner Required":"#b45309","Future Phase":"#374151"};
   return(<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14}}>
-    {items.map(item=>(
-      <div key={item.name} style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-          <div><div style={{fontSize:14,fontWeight:700,color:"#e6edf3"}}>{item.name}</div><div style={{fontSize:10,color:"#4a6fa5",marginTop:1}}>{item.category}</div></div>
-          <div style={{fontSize:9,background:sc[item.status]+"22",border:`1px solid ${sc[item.status]}66`,color:sc[item.status],borderRadius:4,padding:"2px 7px",whiteSpace:"nowrap"}}>{item.status}</div>
-        </div>
-        <div style={{fontSize:12,color:"#8b949e",marginBottom:8,lineHeight:1.5}}>{item.desc}</div>
-        <div style={{fontSize:11,color:"#6e7681"}}>Est. effort: <span style={{color:"#c9d1d9"}}>{item.effort}</span></div>
+    {items.map(item=>(<div key={item.name} style={{background:"#0a0e15",border:"1px solid #161b22",borderRadius:10,padding:"16px 18px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+        <div><div style={{fontSize:14,fontWeight:700,color:"#e6edf3"}}>{item.name}</div><div style={{fontSize:10,color:"#4a6fa5",marginTop:1}}>{item.category}</div></div>
+        <div style={{fontSize:9,background:sc[item.status]+"22",border:`1px solid ${sc[item.status]}66`,color:sc[item.status],borderRadius:4,padding:"2px 7px",whiteSpace:"nowrap"}}>{item.status}</div>
       </div>
-    ))}
+      <div style={{fontSize:12,color:"#8b949e",marginBottom:8,lineHeight:1.5}}>{item.desc}</div>
+      <div style={{fontSize:11,color:"#6e7681"}}>Est: <span style={{color:"#c9d1d9"}}>{item.effort}</span></div>
+    </div>))}
   </div>);
 }
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
-function StageBadge({stage}){
-  const color=STAGE_COLORS[stage]||"#374151";
-  return <span style={{background:color+"22",border:`1px solid ${color}55`,color:"#e6edf3",borderRadius:4,padding:"2px 8px",fontSize:10,whiteSpace:"nowrap"}}>{stage}. {STAGE_LABELS[stage]}</span>;
+// ═══════════════════════════════════════════════════════════
+// RISK ANALYTICS DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function RChartTooltip({active,payload,label}){
+  if(!active||!payload?.length)return null;
+  return(<div style={{background:"#161b22",border:"1px solid #30363d",borderRadius:8,padding:"10px 14px",fontSize:12}}>
+    <div style={{color:RC.text,fontWeight:700,marginBottom:6}}>{label}</div>
+    {payload.map((p,i)=><div key={i} style={{color:p.color,marginBottom:2}}>{p.name}: {typeof p.value==="number"&&p.value>1000?"£"+p.value.toLocaleString("en-GB"):p.value}</div>)}
+  </div>);
 }
-function FilterBtn({active,onClick,label,color}){
-  return <button onClick={onClick} style={{padding:"5px 14px",borderRadius:5,border:`1px solid ${active?color:"#30363d"}`,background:active?color+"22":"transparent",color:active?color:"#6e7681",fontSize:12,cursor:"pointer"}}>{label}</button>;
+function RStatCard({label,value,sub,color=RC.text}){
+  return(<div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"16px 18px"}}>
+    <div style={{fontSize:10,color:RC.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6}}>{label}</div>
+    <div style={{fontSize:22,fontWeight:700,color,marginBottom:4}}>{value}</div>
+    {sub&&<div style={{fontSize:11,color:RC.muted}}>{sub}</div>}
+  </div>);
 }
-function buildExtraFields(c){
-  const f=[],add=(k,v)=>{if(v)f.push({k,v})};
-  add("Conditions",c.conditions);add("Medications",c.medications);add("GP Practice",c.gp);add("iGPR Ref",c.igprRef);add("Morgan Ash Ref",c.morganAshRef);add("UW Decision",c.uwDecision);
-  add("Reprice Reason",c.repriceReason);add("New Rate",c.newRate);add("Previous Rate",c.previousRate);add("Rate Change",c.rateChange);add("Validity Expires",c.validityExpiry);
-  add("Reinsurer",c.reinsurer);add("Treaty Ref",c.treatyRef);add("Sum Reinsured",c.sumReinsured);add("Counter-offer",c.counterOffer);
-  add("Ceding Provider",c.cedingProvider);add("Expected Transfer",c.expectedTransfer);add("Received",c.receivedAmount);add("Origo Ref",c.origoRef);add("Reconciled",c.reconciled);
-  add("Policy Number",c.policyNumber);add("Commencement",c.commencementDate);add("First Payment",c.firstPaymentDate);add("Annual Income",c.annualIncome);add("Cooling Off Expires",c.coolingOffExpiry);add("IFA Commission",c.ifaCommission);
-  add("Last Payment",c.lastPaymentDate);add("Next Payment",c.nextPaymentDate);
-  return f;
+function RSH({title,sub}){
+  return(<div style={{marginBottom:14}}><div style={{fontSize:13,fontWeight:700,color:RC.text}}>{title}</div>{sub&&<div style={{fontSize:11,color:RC.muted,marginTop:2}}>{sub}</div>}</div>);
 }
+function fmtN(n){return n?.toLocaleString("en-GB")??"—";}
+function fmtPct(n){return n?.toFixed(1)+"%"??"—";}
+function fmtRate(n){return n?.toFixed(2)+"%"??"—";}
+
+function RiskDashboard(){
+  const [view,setView]=useState("Overview");
+  const [popFilter,setPopFilter]=useState("all");
+  const activePops=popFilter==="all"?POP_KEYS:[popFilter];
+
+  function totalForPop(pk){return POPULATIONS[pk].reduce((s,r)=>s+r.count,0);}
+  function enhancedForPop(pk){return POPULATIONS[pk].filter(r=>r.morbidity!=="standard").reduce((s,r)=>s+r.count,0);}
+  function totalFundForPop(pk){return POPULATIONS[pk].reduce((s,r)=>s+r.avgFund*r.count,0);}
+
+  return(<div style={{background:RC.bg,minHeight:"100%",fontFamily:"'Palatino Linotype','Book Antiqua',Palatino,Georgia,serif"}}>
+    <div style={{borderBottom:`1px solid ${RC.border}`,marginBottom:20}}>
+      <div style={{display:"flex",gap:0,overflowX:"auto"}}>
+        {RISK_VIEWS.map(v=><button key={v} onClick={()=>setView(v)} style={{padding:"9px 16px",background:"transparent",border:"none",cursor:"pointer",fontSize:12,fontWeight:600,color:view===v?RC.text:RC.muted,borderBottom:view===v?`2px solid ${RC.amber}`:"2px solid transparent",whiteSpace:"nowrap"}}>{v}</button>)}
+      </div>
+    </div>
+    <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
+      <div style={{fontSize:11,color:RC.dim,alignSelf:"center",marginRight:4}}>Population:</div>
+      {[["all","All Three",RC.text],["inForce","In-Force",RC.green],["inApplication","In Application",RC.amber],["inQuotation","In Quotation",RC.blue]].map(([key,label,color])=>(
+        <button key={key} onClick={()=>setPopFilter(key)} style={{padding:"5px 14px",borderRadius:5,border:`1px solid ${popFilter===key?color:"#30363d"}`,background:popFilter===key?color+"22":"transparent",color:popFilter===key?color:RC.muted,fontSize:12,cursor:"pointer"}}>{label}</button>
+      ))}
+    </div>
+
+    {view==="Overview"&&<div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:22}}>
+        <RStatCard label="Total In-Force" value={fmtN(totalForPop("inForce"))} sub={`${fmtN(enhancedForPop("inForce"))} enhanced`} color={RC.green} />
+        <RStatCard label="In Application" value={fmtN(totalForPop("inApplication"))} sub={`${fmtN(enhancedForPop("inApplication"))} enhanced`} color={RC.amber} />
+        <RStatCard label="In Quotation" value={fmtN(totalForPop("inQuotation"))} sub={`${fmtN(enhancedForPop("inQuotation"))} enhanced`} color={RC.blue} />
+        <RStatCard label="Book Fund Value" value={"£"+(Math.round(totalFundForPop("inForce")/1000000*10)/10)+"m"} sub="In-force total" color={RC.purple} />
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:18}}>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Morbidity Mix by Population" sub="Lives per condition group" />
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={MORBIDITY_GROUPS.map(g=>({name:g.label.split(" ")[0],"In-Force":POPULATIONS.inForce.find(r=>r.morbidity===g.id)?.count??0,"In Application":POPULATIONS.inApplication.find(r=>r.morbidity===g.id)?.count??0,"In Quotation":POPULATIONS.inQuotation.find(r=>r.morbidity===g.id)?.count??0}))} barGap={2} barCategoryGap="25%">
+              <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+              <XAxis dataKey="name" tick={{fontSize:10,fill:RC.muted}} />
+              <YAxis tick={{fontSize:10,fill:RC.muted}} />
+              <Tooltip content={<RChartTooltip />} />
+              <Legend wrapperStyle={{fontSize:11}} />
+              <Bar dataKey="In-Force" fill={RC.green} radius={[3,3,0,0]} />
+              <Bar dataKey="In Application" fill={RC.amber} radius={[3,3,0,0]} />
+              <Bar dataKey="In Quotation" fill={RC.blue} radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Enhanced vs Standard Split" sub="Across all populations" />
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+            {POP_KEYS.map(pk=>{const total=totalForPop(pk),enhanced=enhancedForPop(pk),standard=total-enhanced;return(
+              <div key={pk}>
+                <div style={{fontSize:10,color:POP_COLORS[pk],textAlign:"center",marginBottom:4,fontWeight:700}}>{POP_LABELS[pk]}</div>
+                <ResponsiveContainer width="100%" height={130}>
+                  <PieChart><Pie data={[{name:"Enhanced",value:enhanced},{name:"Standard",value:standard}]} dataKey="value" cx="50%" cy="50%" outerRadius={52} innerRadius={30}><Cell fill={RC.amber}/><Cell fill={RC.green}/></Pie><Tooltip content={<RChartTooltip />} /></PieChart>
+                </ResponsiveContainer>
+                <div style={{textAlign:"center",fontSize:10,color:RC.muted}}>{fmtPct(enhanced/total*100)} enhanced</div>
+              </div>
+            );})}
+          </div>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Morbidity Risk Radar" sub="Prevalence % per condition" />
+          <ResponsiveContainer width="100%" height={250}>
+            <RadarChart data={RADAR_DATA}>
+              <PolarGrid stroke={RC.border} />
+              <PolarAngleAxis dataKey="subject" tick={{fontSize:10,fill:RC.muted}} />
+              <PolarRadiusAxis angle={30} domain={[0,80]} tick={{fontSize:9,fill:RC.dim}} />
+              <Radar name="In-Force" dataKey="inForce" stroke={RC.green} fill={RC.green} fillOpacity={0.15} />
+              <Radar name="In Application" dataKey="inApplication" stroke={RC.amber} fill={RC.amber} fillOpacity={0.15} />
+              <Radar name="In Quotation" dataKey="inQuotation" stroke={RC.blue} fill={RC.blue} fillOpacity={0.15} />
+              <Legend wrapperStyle={{fontSize:11}} />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Avg Rate by Morbidity (In-Force)" sub="Weighted average %" />
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart layout="vertical" data={MORBIDITY_GROUPS.map(g=>({name:g.label.split(" ")[0],rate:+(POPULATIONS.inForce.find(r=>r.morbidity===g.id)?.avgRate??0).toFixed(2),fill:g.color}))}>
+              <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+              <XAxis type="number" domain={[4.8,6.5]} tick={{fontSize:10,fill:RC.muted}} tickFormatter={v=>v+"%"} />
+              <YAxis dataKey="name" type="category" tick={{fontSize:10,fill:RC.muted}} width={80} />
+              <Tooltip content={<RChartTooltip />} formatter={v=>v+"%"} />
+              <Bar dataKey="rate" radius={[0,4,4,0]}>{MORBIDITY_GROUPS.map((g,i)=><Cell key={i} fill={g.color} />)}</Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>}
+
+    {view==="Morbidity Risk"&&<div>
+      <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,overflow:"hidden",marginBottom:22}}>
+        <div style={{padding:"14px 18px",borderBottom:`1px solid ${RC.border}`,fontSize:11,color:RC.muted,letterSpacing:"0.15em",textTransform:"uppercase"}}>Morbidity Detail — {popFilter==="all"?"All Populations":POP_LABELS[popFilter]}</div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:700}}>
+            <thead><tr style={{borderBottom:`1px solid ${RC.border}`}}>{["Condition","Risk","Population","Count","Avg Age","M/F","Avg Fund","Avg Rate","Type"].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,color:RC.blue,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:600,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+            <tbody>{MORBIDITY_GROUPS.map((g,gi)=>{
+              const rows=activePops.flatMap(pk=>POPULATIONS[pk].filter(r=>r.morbidity===g.id).map(r=>({...r,popKey:pk})));
+              return rows.map((row,ri)=>(
+                <tr key={`${g.id}-${ri}`} style={{borderBottom:`1px solid ${RC.bg}`,background:gi%2===0?"transparent":"#0b0f16"}}>
+                  {ri===0?<td rowSpan={rows.length} style={{padding:"11px 12px",verticalAlign:"middle"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:"50%",background:g.color,flexShrink:0}}/><span style={{fontSize:12,color:RC.text,fontWeight:600}}>{g.label}</span></div>
+                  </td>:null}
+                  {ri===0?<td rowSpan={rows.length} style={{padding:"11px 12px",fontSize:13,color:g.color,fontWeight:700,verticalAlign:"middle"}}>{g.riskMultiplier.toFixed(2)}x</td>:null}
+                  <td style={{padding:"11px 12px"}}><span style={{fontSize:10,background:POP_COLORS[row.popKey]+"22",border:`1px solid ${POP_COLORS[row.popKey]}66`,color:POP_COLORS[row.popKey],borderRadius:4,padding:"2px 6px",whiteSpace:"nowrap"}}>{POP_LABELS[row.popKey]}</span></td>
+                  <td style={{padding:"11px 12px",fontSize:13,color:RC.text,fontWeight:600}}>{fmtN(row.count)}</td>
+                  <td style={{padding:"11px 12px",fontSize:12,color:RC.muted}}>{row.avgAge.toFixed(1)}</td>
+                  <td style={{padding:"11px 12px",fontSize:12,color:RC.muted}}>{row.maleCount}/{row.femaleCount}</td>
+                  <td style={{padding:"11px 12px",fontSize:12,color:RC.amber}}>£{fmtN(row.avgFund)}</td>
+                  <td style={{padding:"11px 12px",fontSize:12,color:RC.green}}>{fmtRate(row.avgRate)}</td>
+                  <td style={{padding:"11px 12px"}}><span style={{fontSize:10,background:row.morbidity==="standard"?RC.green+"22":RC.amber+"22",border:`1px solid ${row.morbidity==="standard"?RC.green:RC.amber}66`,color:row.morbidity==="standard"?RC.green:RC.amber,borderRadius:3,padding:"1px 5px"}}>{row.morbidity==="standard"?"Standard":"Enhanced"}</span></td>
+                </tr>
+              ));
+            })}</tbody>
+          </table>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Mortality Risk Multipliers" sub="Relative risk vs standard (1.00x)" />
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={MORBIDITY_GROUPS.map(g=>({name:g.label.split("/")[0].trim().split(" ")[0],multiplier:g.riskMultiplier}))}>
+              <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+              <XAxis dataKey="name" tick={{fontSize:10,fill:RC.muted}} />
+              <YAxis domain={[0.9,2.2]} tick={{fontSize:10,fill:RC.muted}} />
+              <Tooltip content={<RChartTooltip />} formatter={v=>v+"x"} />
+              <Bar dataKey="multiplier" radius={[4,4,0,0]}>{MORBIDITY_GROUPS.map((g,i)=><Cell key={i} fill={g.color} />)}</Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="In-Force Population by Condition" />
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart><Pie data={MORBIDITY_GROUPS.map(g=>({name:g.label.split(" ")[0],value:POPULATIONS.inForce.find(r=>r.morbidity===g.id)?.count??0}))} dataKey="value" cx="50%" cy="50%" outerRadius={100} innerRadius={50} label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+              {MORBIDITY_GROUPS.map((g,i)=><Cell key={i} fill={g.color} />)}
+            </Pie><Tooltip content={<RChartTooltip />} /></PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>}
+
+    {view==="Demographics"&&<div>
+      <div style={{marginBottom:20}}>
+        <RSH title="Gender Risk Profile" sub="By population segment" />
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:18}}>
+          {POP_KEYS.map(pk=>{const rows=GENDER_RISK[pk],total=rows.reduce((s,r)=>s+r.count,0);return(
+            <div key={pk} style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"16px 18px"}}>
+              <div style={{fontSize:11,color:POP_COLORS[pk],fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>{POP_LABELS[pk]}</div>
+              {rows.map(r=>(
+                <div key={r.name} style={{marginBottom:14}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,color:RC.text}}>{r.name}</span><span style={{fontSize:12,color:RC.muted}}>{r.count} ({fmtPct(r.count/total*100)})</span></div>
+                  <div style={{background:"#161b22",borderRadius:4,height:4,marginBottom:4}}><div style={{width:`${r.count/total*100}%`,height:4,background:r.name==="Male"?RC.blue:RC.pink,borderRadius:4}}/></div>
+                  <div style={{display:"flex",gap:12,fontSize:10,color:RC.dim}}><span>Avg age: {r.avgAge}</span><span>Enhanced: {fmtPct(r.enhanced/r.count*100)}</span><span>Rate: {fmtRate(r.avgRate)}</span></div>
+                </div>
+              ))}
+            </div>
+          );})}
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+        {["inForce","inQuotation"].map(pk=>(
+          <div key={pk} style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+            <RSH title={`Age Bands — ${POP_LABELS[pk]}`} sub="Male vs Female by cohort" />
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={AGE_BAND_DATA[pk]}>
+                <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+                <XAxis dataKey="band" tick={{fontSize:10,fill:RC.muted}} />
+                <YAxis tick={{fontSize:10,fill:RC.muted}} />
+                <Tooltip content={<RChartTooltip />} />
+                <Legend wrapperStyle={{fontSize:11}} />
+                <Bar dataKey="male" name="Male" fill={RC.blue} stackId="a" />
+                <Bar dataKey="female" name="Female" fill={RC.pink} stackId="a" radius={[3,3,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ))}
+      </div>
+    </div>}
+
+    {view==="Fund Bands"&&<div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:12,marginBottom:22}}>
+        {[{band:"<£50k",color:RC.slate},{band:"£50-100k",color:RC.blue},{band:"£100-200k",color:RC.amber},{band:"£200-300k",color:RC.green},{band:">£300k",color:RC.purple}].map(b=>{
+          const total=POP_KEYS.flatMap(pk=>FUND_BAND_DATA[pk]).filter(r=>r.band===b.band).reduce((s,r)=>s+r.count,0);
+          return<RStatCard key={b.band} label={b.band} value={fmtN(total)} sub="total lives" color={b.color} />;
+        })}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Lives by Fund Band" sub="Across all populations" />
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={[{band:"<£50k"},{band:"£50-100k"},{band:"£100-200k"},{band:"£200-300k"},{band:">£300k"}].map(b=>({band:b.band,"In-Force":FUND_BAND_DATA.inForce.find(r=>r.band===b.band)?.count??0,"In Application":FUND_BAND_DATA.inApplication.find(r=>r.band===b.band)?.count??0,"In Quotation":FUND_BAND_DATA.inQuotation.find(r=>r.band===b.band)?.count??0}))}>
+              <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+              <XAxis dataKey="band" tick={{fontSize:10,fill:RC.muted}} />
+              <YAxis tick={{fontSize:10,fill:RC.muted}} />
+              <Tooltip content={<RChartTooltip />} />
+              <Legend wrapperStyle={{fontSize:11}} />
+              <Bar dataKey="In-Force" fill={RC.green} radius={[3,3,0,0]} />
+              <Bar dataKey="In Application" fill={RC.amber} radius={[3,3,0,0]} />
+              <Bar dataKey="In Quotation" fill={RC.blue} radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Rate vs Risk Score by Fund Band" sub="In-Force" />
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={FUND_BAND_DATA.inForce}>
+              <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+              <XAxis dataKey="band" tick={{fontSize:10,fill:RC.muted}} />
+              <YAxis yAxisId="rate" orientation="left" tick={{fontSize:10,fill:RC.muted}} domain={[5,6.5]} tickFormatter={v=>v+"%"} />
+              <YAxis yAxisId="risk" orientation="right" tick={{fontSize:10,fill:RC.muted}} domain={[1,2]} />
+              <Tooltip content={<RChartTooltip />} />
+              <Legend wrapperStyle={{fontSize:11}} />
+              <Bar yAxisId="rate" dataKey="avgRate" name="Avg Rate %" fill={RC.green} radius={[4,4,0,0]} />
+              <Bar yAxisId="risk" dataKey="riskScore" name="Risk Score x" fill={RC.red} radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>}
+
+    {view==="Socioeconomic"&&<div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:18}}>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Risk Profile by Socioeconomic Segment" sub="Standard vs Enhanced vs High-Risk" />
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={SOCIOECO_RISK}>
+              <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+              <XAxis dataKey="socio" tick={{fontSize:12,fill:RC.muted}} />
+              <YAxis tick={{fontSize:10,fill:RC.muted}} />
+              <Tooltip content={<RChartTooltip />} />
+              <Legend wrapperStyle={{fontSize:11}} />
+              <Bar dataKey="standard" name="Standard" fill={RC.green} stackId="a" />
+              <Bar dataKey="enhanced" name="Enhanced" fill={RC.amber} stackId="a" />
+              <Bar dataKey="highrisk" name="High Risk" fill={RC.red} stackId="a" radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Avg Fund by Socioeconomic Group" />
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={SOCIOECO_RISK}>
+              <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+              <XAxis dataKey="socio" tick={{fontSize:12,fill:RC.muted}} />
+              <YAxis tick={{fontSize:10,fill:RC.muted}} tickFormatter={v=>"£"+(v/1000)+"k"} />
+              <Tooltip content={<RChartTooltip />} />
+              <Bar dataKey="avgFund" name="Avg Fund" fill={RC.purple} radius={[4,4,0,0]}>{SOCIOECO_RISK.map((_,i)=><Cell key={i} fill={[RC.purple,RC.indigo,RC.cyan,RC.slate][i]} />)}</Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,overflow:"hidden",marginBottom:16}}>
+        <div style={{padding:"14px 18px",borderBottom:`1px solid ${RC.border}`,fontSize:11,color:RC.muted,letterSpacing:"0.15em",textTransform:"uppercase"}}>Socioeconomic Segment Detail</div>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr style={{borderBottom:`1px solid ${RC.border}`}}>{["Segment","Description","Standard","Enhanced","High Risk","Enhanced %","Avg Fund","Avg Age"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,color:RC.blue,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:600}}>{h}</th>)}</tr></thead>
+          <tbody>{SOCIOECO_RISK.map((row,i)=>{
+            const desc={AB:"Higher/intermediate managerial",C1:"Supervisory/clerical/junior managerial",C2:"Skilled manual workers",DE:"Semi-skilled/unskilled/unemployed"};
+            const total=row.standard+row.enhanced+row.highrisk;
+            return(<tr key={row.socio} style={{borderBottom:`1px solid ${RC.bg}`,background:i%2===0?"transparent":"#0b0f16"}}>
+              <td style={{padding:"12px 14px",fontSize:16,fontWeight:700,color:RC.text}}>{row.socio}</td>
+              <td style={{padding:"12px 14px",fontSize:11,color:RC.muted}}>{desc[row.socio]}</td>
+              <td style={{padding:"12px 14px",fontSize:13,color:RC.green}}>{row.standard}</td>
+              <td style={{padding:"12px 14px",fontSize:13,color:RC.amber}}>{row.enhanced}</td>
+              <td style={{padding:"12px 14px",fontSize:13,color:RC.red}}>{row.highrisk}</td>
+              <td style={{padding:"12px 14px",fontSize:12,color:(row.enhanced+row.highrisk)/total>0.4?RC.red:RC.amber}}>{fmtPct((row.enhanced+row.highrisk)/total*100)}</td>
+              <td style={{padding:"12px 14px",fontSize:12,color:RC.amber}}>£{fmtN(row.avgFund)}</td>
+              <td style={{padding:"12px 14px",fontSize:12,color:RC.muted}}>{row.avgAge}</td>
+            </tr>);
+          })}</tbody>
+        </table>
+      </div>
+      <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+        <RSH title="Enhanced Lives Heatmap — Condition by Socioeconomic Band" sub="In-Force population" />
+        <div style={{overflowX:"auto"}}>
+          <table style={{borderCollapse:"collapse",minWidth:500}}>
+            <thead><tr><th style={{padding:"8px 12px",textAlign:"left",fontSize:10,color:RC.blue,textTransform:"uppercase"}}>Condition</th>{["AB","C1","C2","DE"].map(s=><th key={s} style={{padding:"8px 20px",textAlign:"center",fontSize:12,color:RC.text,fontWeight:700}}>{s}</th>)}</tr></thead>
+            <tbody>{MORBIDITY_GROUPS.filter(g=>g.id!=="standard").map(g=>{
+              const row=POPULATIONS.inForce.find(r=>r.morbidity===g.id);if(!row)return null;
+              const vals=[row.socioAB,row.socioC1,row.socioC2,row.socioDE],max=Math.max(...vals);
+              return(<tr key={g.id} style={{borderBottom:`1px solid ${RC.bg}`}}>
+                <td style={{padding:"10px 12px",fontSize:12,color:g.color,fontWeight:600,whiteSpace:"nowrap"}}>{g.label}</td>
+                {vals.map((v,vi)=><td key={vi} style={{padding:"8px 12px",textAlign:"center"}}><div style={{display:"inline-block",background:g.color+(Math.round(v/max*200)+55).toString(16).padStart(2,"0"),borderRadius:6,padding:"4px 14px",fontSize:13,fontWeight:700,color:"#fff",minWidth:36}}>{v}</div></td>)}
+              </tr>);
+            })}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>}
+
+    {view==="Margin & Profit"&&<div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:22}}>
+        <RStatCard label="Total Gross Premium" value={"£"+fmtN(MARGIN_DATA.reduce((s,r)=>s+r.grossPremium,0))} sub="In application + quotation" />
+        <RStatCard label="Expected Claims" value={"£"+fmtN(MARGIN_DATA.reduce((s,r)=>s+r.expClaims,0))} color={RC.red} />
+        <RStatCard label="Total Net Margin" value={"£"+fmtN(MARGIN_DATA.reduce((s,r)=>s+r.netMargin,0))} color={RC.green} />
+        <RStatCard label="Blended Margin" value={fmtPct(MARGIN_DATA.reduce((s,r)=>s+r.netMargin,0)/MARGIN_DATA.reduce((s,r)=>s+r.grossPremium,0)*100)} color={RC.amber} />
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Cost Waterfall by Segment" sub="Gross premium decomposition" />
+          <ResponsiveContainer width="100%" height={270}>
+            <BarChart data={MARGIN_DATA}>
+              <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+              <XAxis dataKey="segment" tick={{fontSize:9,fill:RC.muted}} angle={-20} textAnchor="end" height={50} />
+              <YAxis tick={{fontSize:10,fill:RC.muted}} tickFormatter={v=>"£"+(v/1000)+"k"} />
+              <Tooltip content={<RChartTooltip />} />
+              <Legend wrapperStyle={{fontSize:11}} />
+              <Bar dataKey="expClaims" name="Claims" fill={RC.red} stackId="a" />
+              <Bar dataKey="reinsurance" name="Reinsurance" fill={RC.orange} stackId="a" />
+              <Bar dataKey="commission" name="Commission" fill={RC.purple} stackId="a" />
+              <Bar dataKey="opEx" name="Op Ex" fill={RC.slate} stackId="a" />
+              <Bar dataKey="netMargin" name="Net Margin" fill={RC.green} stackId="a" radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Net Margin % by Segment" sub="After all costs" />
+          <ResponsiveContainer width="100%" height={270}>
+            <BarChart layout="vertical" data={[...MARGIN_DATA].sort((a,b)=>b.marginPct-a.marginPct)}>
+              <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+              <XAxis type="number" tick={{fontSize:10,fill:RC.muted}} tickFormatter={v=>v+"%"} domain={[0,42]} />
+              <YAxis dataKey="segment" type="category" tick={{fontSize:10,fill:RC.muted}} width={90} />
+              <Tooltip content={<RChartTooltip />} formatter={v=>v+"%"} />
+              <Bar dataKey="marginPct" name="Margin %" radius={[0,4,4,0]}>{[...MARGIN_DATA].sort((a,b)=>b.marginPct-a.marginPct).map((r,i)=><Cell key={i} fill={r.marginPct>30?RC.green:r.marginPct>22?RC.amber:RC.red} />)}</Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,overflow:"hidden"}}>
+        <div style={{padding:"14px 18px",borderBottom:`1px solid ${RC.border}`,fontSize:11,color:RC.muted,letterSpacing:"0.15em",textTransform:"uppercase"}}>Profitability Detail by Segment</div>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr style={{borderBottom:`1px solid ${RC.border}`}}>{["Segment","Gross Premium","Exp Claims","Claims %","Reinsurance","Commission","Op Ex","Net Margin","Margin %"].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:10,color:RC.blue,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:600,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+          <tbody>{MARGIN_DATA.map((row,i)=>(
+            <tr key={row.segment} style={{borderBottom:`1px solid ${RC.bg}`,background:i%2===0?"transparent":"#0b0f16"}}>
+              <td style={{padding:"11px 12px",fontSize:12,color:RC.text,fontWeight:600}}>{row.segment}</td>
+              <td style={{padding:"11px 12px",fontSize:12,color:RC.muted}}>£{fmtN(row.grossPremium)}</td>
+              <td style={{padding:"11px 12px",fontSize:12,color:RC.red}}>£{fmtN(row.expClaims)}</td>
+              <td style={{padding:"11px 12px",fontSize:12,color:row.expClaims/row.grossPremium>0.6?RC.red:RC.amber}}>{fmtPct(row.expClaims/row.grossPremium*100)}</td>
+              <td style={{padding:"11px 12px",fontSize:12,color:RC.muted}}>£{fmtN(row.reinsurance)}</td>
+              <td style={{padding:"11px 12px",fontSize:12,color:RC.muted}}>£{fmtN(row.commission)}</td>
+              <td style={{padding:"11px 12px",fontSize:12,color:RC.muted}}>£{fmtN(row.opEx)}</td>
+              <td style={{padding:"11px 12px",fontSize:13,color:RC.green,fontWeight:700}}>£{fmtN(row.netMargin)}</td>
+              <td style={{padding:"11px 12px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{flex:1,background:"#161b22",borderRadius:3,height:4,minWidth:50}}><div style={{width:`${row.marginPct}%`,height:4,background:row.marginPct>30?RC.green:row.marginPct>22?RC.amber:RC.red,borderRadius:3}}/></div>
+                  <span style={{fontSize:12,color:row.marginPct>30?RC.green:row.marginPct>22?RC.amber:RC.red,fontWeight:700,minWidth:36}}>{fmtPct(row.marginPct)}</span>
+                </div>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+    </div>}
+
+    {view==="Pipeline MI"&&<div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:22}}>
+        <RStatCard label="Quotations (Mar)" value={PIPELINE_TREND[5].quotations} sub="+20% vs Feb" color={RC.blue} />
+        <RStatCard label="Applications (Mar)" value={PIPELINE_TREND[5].applications} sub="+65% vs Feb" color={RC.amber} />
+        <RStatCard label="Issued (Mar)" value={PIPELINE_TREND[5].issued} sub="+21% vs Feb" color={RC.green} />
+        <RStatCard label="Premium Volume" value={"£"+PIPELINE_TREND[5].premiumMn+"m"} sub="Mar 2026" color={RC.purple} />
+      </div>
+      <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px",marginBottom:16}}>
+        <RSH title="6-Month Pipeline Trend" sub="Quotations, Applications and Issued" />
+        <ResponsiveContainer width="100%" height={250}>
+          <AreaChart data={PIPELINE_TREND}>
+            <defs>
+              <linearGradient id="gQ" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={RC.blue} stopOpacity={0.3}/><stop offset="95%" stopColor={RC.blue} stopOpacity={0}/></linearGradient>
+              <linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={RC.amber} stopOpacity={0.3}/><stop offset="95%" stopColor={RC.amber} stopOpacity={0}/></linearGradient>
+              <linearGradient id="gI" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={RC.green} stopOpacity={0.3}/><stop offset="95%" stopColor={RC.green} stopOpacity={0}/></linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+            <XAxis dataKey="month" tick={{fontSize:11,fill:RC.muted}} />
+            <YAxis tick={{fontSize:10,fill:RC.muted}} />
+            <Tooltip content={<RChartTooltip />} />
+            <Legend wrapperStyle={{fontSize:11}} />
+            <Area type="monotone" dataKey="quotations" name="Quotations" stroke={RC.blue} fill="url(#gQ)" strokeWidth={2} />
+            <Area type="monotone" dataKey="applications" name="Applications" stroke={RC.amber} fill="url(#gA)" strokeWidth={2} />
+            <Area type="monotone" dataKey="issued" name="Issued" stroke={RC.green} fill="url(#gI)" strokeWidth={2} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Conversion Rates" sub="Quote to App to Issued" />
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={PIPELINE_TREND.map(r=>({month:r.month,"Quote to App %":+((r.applications/r.quotations)*100).toFixed(1),"App to Issued %":+((r.issued/r.applications)*100).toFixed(1)}))}>
+              <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+              <XAxis dataKey="month" tick={{fontSize:10,fill:RC.muted}} />
+              <YAxis tick={{fontSize:10,fill:RC.muted}} tickFormatter={v=>v+"%"} />
+              <Tooltip content={<RChartTooltip />} formatter={v=>v+"%"} />
+              <Legend wrapperStyle={{fontSize:11}} />
+              <Line type="monotone" dataKey="Quote to App %" stroke={RC.amber} strokeWidth={2} dot={{fill:RC.amber}} />
+              <Line type="monotone" dataKey="App to Issued %" stroke={RC.green} strokeWidth={2} dot={{fill:RC.green}} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,padding:"18px 20px"}}>
+          <RSH title="Monthly Premium Volume" sub="£m written per month" />
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={PIPELINE_TREND}>
+              <defs><linearGradient id="gP" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={RC.purple} stopOpacity={0.4}/><stop offset="95%" stopColor={RC.purple} stopOpacity={0}/></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={RC.border} />
+              <XAxis dataKey="month" tick={{fontSize:10,fill:RC.muted}} />
+              <YAxis tick={{fontSize:10,fill:RC.muted}} tickFormatter={v=>"£"+v+"m"} />
+              <Tooltip content={<RChartTooltip />} formatter={v=>"£"+v+"m"} />
+              <Area type="monotone" dataKey="premiumMn" name="Premium" stroke={RC.purple} fill="url(#gP)" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div style={{background:RC.card,border:`1px solid ${RC.border}`,borderRadius:10,overflow:"hidden"}}>
+        <div style={{padding:"14px 18px",borderBottom:`1px solid ${RC.border}`,fontSize:11,color:RC.muted,letterSpacing:"0.15em",textTransform:"uppercase"}}>Monthly Management Information</div>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr style={{borderBottom:`1px solid ${RC.border}`}}>{["Month","Quotations","Applications","Issued","Quote to App","App to Issued","Premium","MoM"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,color:RC.blue,letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:600}}>{h}</th>)}</tr></thead>
+          <tbody>{PIPELINE_TREND.map((row,i)=>{const prev=PIPELINE_TREND[i-1],momChg=prev?((row.premiumMn-prev.premiumMn)/prev.premiumMn*100).toFixed(1):null;return(
+            <tr key={row.month} style={{borderBottom:`1px solid ${RC.bg}`,background:i%2===0?"transparent":"#0b0f16"}}>
+              <td style={{padding:"11px 14px",fontSize:12,color:RC.text,fontWeight:600}}>{row.month}</td>
+              <td style={{padding:"11px 14px",fontSize:13,color:RC.blue}}>{row.quotations}</td>
+              <td style={{padding:"11px 14px",fontSize:13,color:RC.amber}}>{row.applications}</td>
+              <td style={{padding:"11px 14px",fontSize:13,color:RC.green}}>{row.issued}</td>
+              <td style={{padding:"11px 14px",fontSize:12,color:RC.muted}}>{((row.applications/row.quotations)*100).toFixed(1)}%</td>
+              <td style={{padding:"11px 14px",fontSize:12,color:RC.muted}}>{((row.issued/row.applications)*100).toFixed(1)}%</td>
+              <td style={{padding:"11px 14px",fontSize:12,color:RC.purple}}>£{row.premiumMn}m</td>
+              <td style={{padding:"11px 14px",fontSize:12,color:momChg===null?RC.dim:parseFloat(momChg)>=0?RC.green:RC.red}}>{momChg===null?"—":(parseFloat(momChg)>=0?"+":"")+momChg+"%"}</td>
+            </tr>
+          );})}
+          </tbody>
+        </table>
+      </div>
+    </div>}
+  </div>);
+}
+
+// ─── SHARED HELPERS ───────────────────────────────────────────────────────────
+function StageBadge({stage}){const color=STAGE_COLORS[stage]||"#374151";return<span style={{background:color+"22",border:`1px solid ${color}55`,color:"#e6edf3",borderRadius:4,padding:"2px 8px",fontSize:10,whiteSpace:"nowrap"}}>{stage}. {STAGE_LABELS[stage]}</span>;}
+function FilterBtn({active,onClick,label,color}){return<button onClick={onClick} style={{padding:"5px 14px",borderRadius:5,border:`1px solid ${active?color:"#30363d"}`,background:active?color+"22":"transparent",color:active?color:"#6e7681",fontSize:12,cursor:"pointer"}}>{label}</button>;}
+function buildExtraFields(c){const f=[],add=(k,v)=>{if(v)f.push({k,v})};add("Conditions",c.conditions);add("Medications",c.medications);add("GP Practice",c.gp);add("iGPR Ref",c.igprRef);add("Morgan Ash Ref",c.morganAshRef);add("UW Decision",c.uwDecision);add("Reprice Reason",c.repriceReason);add("New Rate",c.newRate);add("Previous Rate",c.previousRate);add("Rate Change",c.rateChange);add("Validity Expires",c.validityExpiry);add("Reinsurer",c.reinsurer);add("Treaty Ref",c.treatyRef);add("Sum Reinsured",c.sumReinsured);add("Counter-offer",c.counterOffer);add("Ceding Provider",c.cedingProvider);add("Expected Transfer",c.expectedTransfer);add("Received",c.receivedAmount);add("Origo Ref",c.origoRef);add("Reconciled",c.reconciled);add("Policy Number",c.policyNumber);add("Commencement",c.commencementDate);add("First Payment",c.firstPaymentDate);add("Annual Income",c.annualIncome);add("Cooling Off Expires",c.coolingOffExpiry);add("IFA Commission",c.ifaCommission);add("Last Payment",c.lastPaymentDate);add("Next Payment",c.nextPaymentDate);return f;}
